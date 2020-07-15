@@ -6,6 +6,7 @@ bypass the credentials needed to login to labstats.
 
 from selenium import webdriver
 from StocktonBotPackage.DevUtilities import configparser
+import os
 
 # -----------------------------------------+
 config = configparser.get_parsed_config()  #
@@ -16,8 +17,11 @@ def open_browser_driver():
 
     print("Opening browser driver, please wait...")
     options = webdriver.ChromeOptions()  # executable_path="C:\Program Files\Chrome Driver\chromedriver.exe"
-    options.add_argument('headless')
-    browser = webdriver.Chrome(options=options, executable_path="C:\Program Files\Chrome Driver\chromedriver.exe")
+    options.add_argument("--headless")  # For general purposes
+    options.add_argument('--disable-gpu')  # For Heroku
+    options.add_argument('--no-sandbox')  # For Heroku
+    options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
+    browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
 
     browser.get(config['website']['url'])
     browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame1']))
