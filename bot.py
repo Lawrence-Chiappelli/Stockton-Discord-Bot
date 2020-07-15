@@ -35,7 +35,7 @@ async def on_ready():
         )
         # ----------------------------------------------------- #
     else:
-        print(f"Not pinged for lab updates, visual interface missing.")
+        print(f"Not pinging for lab updates, visual interface missing.")
 
 
 

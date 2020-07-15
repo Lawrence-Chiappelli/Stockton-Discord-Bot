@@ -17,10 +17,16 @@ def open_browser_driver():
 
     print("Opening browser driver, please wait...")
     options = webdriver.ChromeOptions()  # executable_path="C:\Program Files\Chrome Driver\chromedriver.exe"
+
+    try:
+        options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
+    except Exception:
+        pass
+
     options.add_argument("--headless")  # For general purposes
     options.add_argument('--disable-gpu')  # For Heroku
     options.add_argument('--no-sandbox')  # For Heroku
-    options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
+    options.add_argument('--disable-dev-shm-usage')  # Hotfix found on StackOverflow
     browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
 
     browser.get(config['website']['url'])

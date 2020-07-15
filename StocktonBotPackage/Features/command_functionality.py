@@ -53,7 +53,6 @@ async def scrape_website(client):
 
 async def update_machine_availability_embed(guild, pc_statuses):
 
-    print(f"PC statuses")
     game_lab_channel_name = config['channel']['gamelabavailability']
     channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
     messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
@@ -82,7 +81,7 @@ async def send_authentication_embed(context):
     embed.set_thumbnail(
         url="https://images.vexels.com/media/users/3/157931/isolated/preview/604a0cadf94914c7ee6c6e552e9b4487-curved-check-mark-circle-icon-by-vexels.png")
     embed.add_field(name="You will receive this role:", value=role.mention, inline=True)
-    embed.add_field(name="Users Authorized:", value="150", inline=True)
+    embed.add_field(name="Users Authorized:", value=str(get_num_members_with_role(role)), inline=True)
     embed.set_footer(text="Stockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
     await context.message.channel.send(embed=embed)
     last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
@@ -161,5 +160,19 @@ async def execute_bot_reaction_directory(emoji, channel, member):
     if str(emoji) == auth_emoji and str(channel) == auth_channel:
         auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
         await member.add_roles(auth_role)
+        message = [msg async for msg in channel.history(limit=1)].pop()
+        embed = message.embeds[0]
+        embed.set_field_at(index=1, name=f"Users Authorized:", value=get_num_members_with_role(auth_role), inline=True)
+        await message.edit(embed=embed)
 
     return None
+
+
+def get_num_members_with_role(role):
+
+    num_members_with_role = 0
+    for member in role.guild.members:
+        if role in member.roles and not member.bot:
+            num_members_with_role += 1
+
+    return num_members_with_role
