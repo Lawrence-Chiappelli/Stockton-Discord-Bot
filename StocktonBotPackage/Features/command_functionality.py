@@ -5,6 +5,7 @@ from StocktonBotPackage.Features import gaming_lab_api
 import threading
 import discord
 import asyncio
+import re
 
 # -----------------------------------------+
 config = configparser.get_parsed_config()  #
@@ -72,7 +73,7 @@ async def update_machine_availability_embed(guild, pc_statuses):
 
 async def send_authentication_embed(context):
     await context.message.delete()
-    role = discord.utils.get(context.message.guild.roles, name="Auth-ed")
+    role = discord.utils.get(context.message.guild.roles, name=config['role']['authed'])
 
     embed = discord.Embed(title="React to the below checkmark to access the full Stockton Esports Discord!",
                           description="`Disclaimer`: By reacting to the below checkmark, you understand the aforementioned rules and agree to be kind and amenable with the community here. Once you have gained access to the server, carefully browse the server directory to get where you need to be. ",
@@ -145,7 +146,63 @@ async def send_machine_availability_embed(context):
     return None
 
 
-async def execute_bot_reaction_directory(emoji, channel, member):
+async def send_game_selection_panel(context):
+
+    await context.message.delete()
+
+    role_apex = discord.utils.get(context.message.guild.roles, name=config['role']['apex'])
+    role_csgo = discord.utils.get(context.message.guild.roles, name=config['role']['csgo'])
+    role_fifa = discord.utils.get(context.message.guild.roles, name=config['role']['fifa'])
+    role_fortnite = discord.utils.get(context.message.guild.roles, name=config['role']['fortnite'])
+    role_hearthstone = discord.utils.get(context.message.guild.roles, name=config['role']['hearthstone'])
+    role_league = discord.utils.get(context.message.guild.roles, name=config['role']['league'])
+    role_overwatch = discord.utils.get(context.message.guild.roles, name=config['role']['overwatch'])
+    role_rocketleague = discord.utils.get(context.message.guild.roles, name=config['role']['rocketleague'])
+    role_sbu = discord.utils.get(context.message.guild.roles, name=config['role']['smash'])
+    role_valorant = discord.utils.get(context.message.guild.roles, name=config['role']['valorant'])
+
+    emoji_apex = discord.utils.get(context.message.guild.emojis, name=config['emoji']['apex'])
+    emoji_csgo = discord.utils.get(context.message.guild.emojis, name=config['emoji']['csgo'])
+    emoji_fifa = discord.utils.get(context.message.guild.emojis, name=config['emoji']['fifa'])
+    emoji_fortnite = discord.utils.get(context.message.guild.emojis, name=config['emoji']['fortnite'])
+    emoji_hearthstone = discord.utils.get(context.message.guild.emojis, name=config['emoji']['hearthstone'])
+    emoji_league = discord.utils.get(context.message.guild.emojis, name=config['emoji']['league'])
+    emoji_overwatch = discord.utils.get(context.message.guild.emojis, name=config['emoji']['overwatch'])
+    emoji_rocketleague = discord.utils.get(context.message.guild.emojis, name=config['emoji']['rocketleague'])
+    emoji_sbu = discord.utils.get(context.message.guild.emojis, name=config['emoji']['smash'])
+    emoji_valorant = discord.utils.get(context.message.guild.emojis, name=config['emoji']['valorant'])
+
+    embed = discord.Embed(
+        title="Participate in one of our supported game selections by reaction to the corresponding reaction!",
+        color=0x24b6ff)
+    embed.set_author(name="🎮 Role Menu: Game Assignment")
+    embed.set_thumbnail(url="https://stockton.edu/relations/brand-guide/images/osprey-head-full.png")
+    embed.add_field(name=f"{emoji_apex} Apex Legends", value=role_apex.mention, inline=True)
+    embed.add_field(name=f"{emoji_csgo} CS:GO", value=role_csgo.mention, inline=True)
+    embed.add_field(name=f"{emoji_fifa} FIFA", value=role_fifa.mention, inline=True)
+    embed.add_field(name=f"{emoji_fortnite} Fortnite", value=role_fortnite.mention, inline=True)
+    embed.add_field(name=f"{emoji_hearthstone} Hearthstone", value=role_hearthstone.mention, inline=True)
+    embed.add_field(name=f"{emoji_league} League of Legends", value=role_league.mention, inline=True)
+    embed.add_field(name=f"{emoji_overwatch} Overwatch", value=role_overwatch.mention, inline=True)
+    embed.add_field(name=f"{emoji_rocketleague} Rocket League", value=role_rocketleague.mention, inline=True)
+    embed.add_field(name=f"{emoji_sbu} Smash Brothers", value=role_sbu.mention, inline=True)
+    embed.add_field(name=f"{emoji_valorant} Valorant", value=role_valorant.mention, inline=True)
+    embed.set_footer(text="By reacting below, you will receive one of the corresponding roles above!")
+    await context.send(embed=embed)
+    last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
+    await last_message.add_reaction(emoji_apex)
+    await last_message.add_reaction(emoji_csgo)
+    await last_message.add_reaction(emoji_fifa)
+    await last_message.add_reaction(emoji_fortnite)
+    await last_message.add_reaction(emoji_hearthstone)
+    await last_message.add_reaction(emoji_league)
+    await last_message.add_reaction(emoji_overwatch)
+    await last_message.add_reaction(emoji_rocketleague)
+    await last_message.add_reaction(emoji_sbu)
+    await last_message.add_reaction(emoji_valorant)
+
+
+async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
 
     """
     :param emoji: the emoji being reacted
@@ -156,6 +213,11 @@ async def execute_bot_reaction_directory(emoji, channel, member):
 
     auth_emoji = config['emoji']['authed']
     auth_channel = config['channel']['landing']
+    gameselection_channel = config['channel']['gameselection']
+    all_emojis = dict(config.items('emoji'))
+
+    if isinstance(emoji, discord.partial_emoji.PartialEmoji):
+        emoji = emoji.name
 
     if str(emoji) == auth_emoji and str(channel) == auth_channel:
         auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
@@ -164,6 +226,16 @@ async def execute_bot_reaction_directory(emoji, channel, member):
         embed = message.embeds[0]
         embed.set_field_at(index=1, name=f"Users Authorized:", value=get_num_members_with_role(auth_role), inline=True)
         await message.edit(embed=embed)
+    elif str(emoji) in all_emojis.values() and str(channel) == gameselection_channel:
+
+        converted_name = convert_emoji_name_to_role(str(emoji))
+        game_role = discord.utils.get(member.guild.roles, name=converted_name)
+
+        if is_add and game_role not in member.roles:
+            await member.add_roles(game_role)
+        else:
+            if game_role in member.roles:
+                await member.remove_roles(game_role)
 
     return None
 
@@ -176,3 +248,19 @@ def get_num_members_with_role(role):
             num_members_with_role += 1
 
     return num_members_with_role
+
+
+def convert_emoji_name_to_role(emoji):
+
+    if str(emoji).isupper():
+        if "SG" in str(emoji):
+            converted_name = str(emoji).replace("SG", "S:G")  # Insert colon for CS:GO
+        else:
+            converted_name = str(emoji)  # And ignore if FIFA or otherwise all caps
+
+    else:
+        converted_name = re.sub(r"(\w)([A-Z])", r"\1 \2", str(emoji))
+        if "of" in converted_name:  # space before the 'of' in League of Legends
+            converted_name = str(converted_name).replace("of", " of")
+
+    return converted_name

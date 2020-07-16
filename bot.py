@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 import time
 import asyncio
+import discord
 
 # -----------------------------------------+
 client = commands.Bot(command_prefix='!')  #
@@ -38,7 +39,6 @@ async def on_ready():
         print(f"Not pinging for lab updates, visual interface missing.")
 
 
-
 @client.event
 async def on_raw_reaction_add(payload):
 
@@ -46,8 +46,26 @@ async def on_raw_reaction_add(payload):
     channel = client.get_channel(payload.channel_id)
     member = payload.member
 
+    if member.bot:
+        return
+
     if validators.is_bot_reaction_function(emoji, channel):
         await command_functionality.execute_bot_reaction_directory(emoji, channel, member)
+
+
+@client.event
+async def on_raw_reaction_remove(payload):
+
+    emoji = payload.emoji
+    channel = client.get_channel(payload.channel_id)
+    member = discord.utils.get(client.get_all_members(), id=payload.user_id)
+    # Attribute member "Only available if event_type is REACTION_ADD."
+
+    if member.bot:
+        return
+
+    if validators.is_bot_reaction_function(emoji, channel):
+        await command_functionality.execute_bot_reaction_directory(emoji, channel, member, False)
 
 
 @client.event
@@ -111,6 +129,18 @@ async def scrape(ctx):
             await command_functionality.scrape_website(client)
         ]
     )
+
+
+@client.command()
+async def gameselection(ctx):
+
+    """
+    Send out the visual game selection panel
+    :param ctx: context
+    :return: None
+    """
+
+    await command_functionality.send_game_selection_panel(ctx)
 
 
 client.run(os.environ['TOKEN'])

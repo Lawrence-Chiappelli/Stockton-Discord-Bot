@@ -20,7 +20,9 @@ def is_bot_reaction_function(emoji, channel):
     bot_channels = dict(config.items('channel'))
     bot_emojis = dict(config.items('emoji'))
 
-    if not isinstance(emoji, str):
+    if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # If custom emoji, the name needs to be grabbed
+        emoji = str(emoji.name)
+    elif not isinstance(emoji, str):
         emoji = str(emoji)
 
     if not isinstance(channel, str):
