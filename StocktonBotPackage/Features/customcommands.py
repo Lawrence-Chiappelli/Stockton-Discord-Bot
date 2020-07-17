@@ -1,8 +1,6 @@
 # Abstract the command content away from bot.py and keep it clean.
 
-from StocktonBotPackage.DevUtilities import configparser, validators
-from StocktonBotPackage.Features import gaming_lab_api
-import threading
+from StocktonBotPackage.DevUtilities import configparser, validators, gaminglabAPI
 import discord
 import asyncio
 import re
@@ -40,7 +38,7 @@ async def scrape_website(client):
         scraper.is_scraping = True
         await bot_channel.send(f"Checking for machine availability...")
         try:
-            pc_statuses = gaming_lab_api.get_pc_availability()
+            pc_statuses = gaminglabAPI.get_pc_availability()
         except Exception as e:
             print(f"Unable to scrape data!:\n{e}")
             await bot_channel.send(f"Exception caught scraping data:\n{e}")
@@ -49,7 +47,7 @@ async def scrape_website(client):
 
         await bot_channel.send(f"Updating the embed with the following statuses:\n{pc_statuses}")
         await update_machine_availability_embed(client, pc_statuses)
-        await asyncio.sleep(5)
+        await asyncio.sleep(5)  # Control is given to Twitter feed for 5 seconds
 
 
 async def update_machine_availability_embed(guild, pc_statuses):

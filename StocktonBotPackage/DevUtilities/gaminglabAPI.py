@@ -1,7 +1,8 @@
 """
 A custom pseudo-API developed by me to easily
-get gaming lab data via websraping- and ultimately
-bypass the credentials needed to login to labstats.
+retrieve gaming lab data via websraping- ultimately
+bypassing the need for the university's credentials
+to login to labstats.com
 """
 
 from selenium import webdriver
