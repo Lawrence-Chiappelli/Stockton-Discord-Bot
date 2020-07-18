@@ -1,5 +1,6 @@
 from StocktonBotPackage.Features import customcommands, helpcontactinfo, twitterfeed
 from StocktonBotPackage.DevUtilities import configparser, validators
+from discord.ext.commands import has_permissions, CheckFailure
 from discord.ext import commands
 import os
 import time
@@ -29,6 +30,7 @@ async def on_ready():
     print(f"Bot ready! (in {1000 * (after - before)} milliseconds!)")
 
     if await validators.machine_availabilty_embed_exists(client):
+        print(f"Checks passed! Scraping for website and polling for tweets...")
         # ----------------------------------------------------- #
         await asyncio.wait(
             [
@@ -39,7 +41,7 @@ async def on_ready():
         )
         # ----------------------------------------------------- #
     else:
-        print(f"Not pinging for lab updates, visual interface missing.")
+        print(f"Not pinging for lab updates, visual PC availability interface missing.")
 
 
 @client.event
@@ -78,7 +80,6 @@ async def on_message(message):
         # TODO: Accommodate for social media feed
         return
 
-
     await client.process_commands(message)
 
 
@@ -92,19 +93,26 @@ async def get_emoji_from_bot(message):
         return None
 
 
-@client.command()
+@client.command(name='auth', pass_context=True)
+@has_permissions(administrator=True)
 async def auth(ctx):
 
     """
     Send out the visual authentication panel (in #landing)
-    :param ctx: content
+    :param ctx: context
     :return: None
     """
 
     await customcommands.send_authentication_embed(ctx)
 
 
-@client.command()
+@auth.error
+async def auth_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+
+
+@client.command(name='gamelab', pass_context=True)
+@has_permissions(administrator=True)
 async def gamelab(ctx):
 
     """
@@ -115,7 +123,13 @@ async def gamelab(ctx):
     await customcommands.send_machine_availability_embed(ctx)
 
 
-@client.command()
+@gamelab.error
+async def gamelab_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+
+
+@client.command(name='scrape', pass_context=True)
+@has_permissions(administrator=True)
 async def scrape(ctx):
 
     """
@@ -130,24 +144,31 @@ async def scrape(ctx):
 
     await asyncio.wait(
         [
-            await customcommands.scrape_website(client)
+            customcommands.scrape_website(client)
         ]
     )
 
 
-@client.command()
+@scrape.error
+async def scrape_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+
+
+@client.command(name='gameselection', pass_context=True)
+@has_permissions(administrator=True)
 async def gameselection(ctx):
 
     """
     Send out the visual game selection panel
-    :param ctx: context
+    :param ctx: Context
     :return: None
     """
 
     await customcommands.send_game_selection_panel(ctx)
 
 
-@client.command()
+@client.command(name='helppanel', pass_context=True)
+@has_permissions(administrator=True)
 async def helppanel(ctx):
 
     """
@@ -157,8 +178,13 @@ async def helppanel(ctx):
 
     await helpcontactinfo.send_help_panel(ctx, client)
 
+@helppanel.error
+async def helppanel_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
 
-@client.command()
+
+@client.command(name='populate', pass_context=True)
+@has_permissions(administrator=True)
 async def populate(ctx):
 
     """
@@ -170,7 +196,13 @@ async def populate(ctx):
     await twitterfeed.populate_channel_with_tweets(ctx)
 
 
-@client.command()
+@populate.error
+async def populate_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+
+
+@client.command(name="tweet", pass_context=True)
+@has_permissions(administrator=True)
 async def tweet(ctx):
 
     """
@@ -180,5 +212,10 @@ async def tweet(ctx):
     """
 
     await twitterfeed.get_last_tweet()
+
+
+@tweet.error
+async def tweet_error(error, ctx):
+    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
 
 client.run(os.environ['TOKEN'])

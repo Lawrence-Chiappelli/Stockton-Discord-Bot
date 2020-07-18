@@ -528,5 +528,5 @@ client = TweepyClient(profile)  # Now initialized the client with one profile
 thread = threading.Thread(target=listener.thread_stream, args=[])
 
 # --------------#
-# thread.start()  #  Comment / uncomment during development!! (Or keep in mind rate limits when testing)
+thread.start()  #  Comment / uncomment during development!! (Or keep in mind rate limits when testing)
 # --------------#
