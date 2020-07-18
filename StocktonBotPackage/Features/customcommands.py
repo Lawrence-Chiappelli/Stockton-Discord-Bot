@@ -32,7 +32,8 @@ async def scrape_website(client):
 
     while True:
         if not await validators.machine_availabilty_embed_exists(client):
-            await bot_channel.send(f"Machine availability panels must first exist in the channel `#{config['channel']['gamelabavailability']}`! You can add these panels by entering `!machineavailability` inside the channel.")
+            await bot_channel.send(f"Machine availability panels must first exist in the channel `#{config['channel']['gamelabavailability']}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
+            scraper.is_scraping = False
             return
 
         scraper.is_scraping = True
@@ -56,6 +57,10 @@ async def update_machine_availability_embed(guild, pc_statuses):
     channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
     messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
 
+    reservations_sheet = gsheetsAPI.get_sheet_blue_room_reservations()
+    reservations = reservations_sheet.col_values(2)
+    del reservations[0:4]
+
     for msg in messages:  # There's only 2 of these embeds, meaning the worst time complexity is irrelevant
         embed = msg.embeds[0]
         for i, status in enumerate(pc_statuses.values()):
@@ -64,6 +69,10 @@ async def update_machine_availability_embed(guild, pc_statuses):
                 value = config['lab-icons']['available']
             else:
                 value = config['lab-icons']['inuse']
+
+            if reservations[i] == "TRUE":
+                value += " " + config['lab-icons']['reserved']
+                value = value[::-1]  # Reverse the string, so that reserved comes first
 
             embed.set_field_at(index=i, name=f"{i+1} 🖥️", value=value, inline=True)
         await msg.edit(embed=embed)
@@ -112,7 +121,7 @@ async def send_machine_availability_embed(context):
     embed.add_field(name="13 🖥️", value=config['lab-icons']['waiting'], inline=True)
     embed.add_field(name="14 🖥️", value=config['lab-icons']['waiting'], inline=True)
     embed.add_field(name="15 🖥️", value=config['lab-icons']['waiting'], inline=True)
-    embed.set_footer(text=f"Available {config['lab-icons']['available']} | In-Use {config['lab-icons']['inuse']} | Error {config['lab-icons']['waiting']}\n\nStockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
+    embed.set_footer(text=f"Available {config['lab-icons']['available']} | In-Use {config['lab-icons']['inuse']} | Reserved [{config['lab-icons']['reserved']}]\n\nStockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
     await context.send(embed=embed)
 
     """

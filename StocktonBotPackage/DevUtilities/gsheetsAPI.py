@@ -44,3 +44,7 @@ def get_sheet_events_subscriptions():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('EVENTS / SUBSCRIPTIONS')
     return sheet
 
+
+def get_sheet_blue_room_reservations():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('PC RESERVATIONS - BLUE ROOM')
+    return sheet
