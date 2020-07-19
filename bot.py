@@ -178,6 +178,7 @@ async def helppanel(ctx):
 
     await helpcontactinfo.send_help_panel(ctx, client)
 
+
 @helppanel.error
 async def helppanel_error(error, ctx):
     print(f"This user does not have perms does not have permissions to enter this command!: {error}")

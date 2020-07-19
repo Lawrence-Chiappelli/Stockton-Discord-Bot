@@ -1,4 +1,7 @@
+
+
 import gspread
+from StocktonBotPackage.DevUtilities import dropboxAPI
 from oauth2client.service_account import ServiceAccountCredentials
 
 """
@@ -17,7 +20,8 @@ scope = [
 def open_google_sheets_client():
 
     print(f"Opening Google Sheets client, please wait...")
-    credentials = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    json_keyfile = dropboxAPI.get_ghseets_credentials()
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
     client = gspread.authorize(credentials)
     print(f"...Google sheets client successfully opened!")
     return client
