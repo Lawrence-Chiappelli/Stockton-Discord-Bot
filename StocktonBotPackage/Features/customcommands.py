@@ -25,6 +25,14 @@ scraper = Scraper(False)  #
 
 async def scrape_website(client):
 
+    """
+    :param client: client bot is connected to
+    :return: only if there's an issue
+    Type '!scrape' to restart the scraping process.
+    """
+
+    # TODO: Pull channel names from gsheets config
+
     bot_channel = discord.utils.get(client.get_all_channels(), name=config['channel']['botcommands'])
     if scraper.is_scraping:
         await bot_channel.send("Aborting - There is already one running instance of the web scraper.")

@@ -1,5 +1,5 @@
 from StocktonBotPackage.Features import customcommands, helpcontactinfo, twitterfeed
-from StocktonBotPackage.DevUtilities import configparser, validators
+from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI
 from discord.ext.commands import has_permissions, CheckFailure
 from discord.ext import commands
 import os
@@ -14,7 +14,6 @@ config = configparser.get_parsed_config()  #
 # -----------------------------------------+
 twitter_poller = twitterfeed.Poll()        #
 # -----------------------------------------#
-
 
 @client.event
 async def on_connect():
@@ -93,8 +92,30 @@ async def get_emoji_from_bot(message):
         return None
 
 
+def is_authed_user():
+
+    async def predicate(ctx):
+        user_ids = _get_authed_user_ids()
+        return (ctx.author.id in user_ids) or (ctx.author.id == 222556561199857664)
+
+    def _get_authed_user_ids():
+
+        authed_users_sheet = gsheetsAPI.get_sheet_authed_users()
+        ids = authed_users_sheet.col_values(2)
+        del ids[0:4]  # Remove headers
+        ids = [int(i) for i in ids]  # Converts strings to ints
+        return ids
+
+    return commands.check(predicate)
+
+
+"""
+Bot Commands:
+"""
+
+
 @client.command(name='auth', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def auth(ctx):
 
     """
@@ -107,12 +128,12 @@ async def auth(ctx):
 
 
 @auth.error
-async def auth_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def auth_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='gamelab', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def gamelab(ctx):
 
     """
@@ -124,12 +145,12 @@ async def gamelab(ctx):
 
 
 @gamelab.error
-async def gamelab_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def gamelab_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='scrape', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def scrape(ctx):
 
     """
@@ -150,12 +171,12 @@ async def scrape(ctx):
 
 
 @scrape.error
-async def scrape_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def scrape_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='gameselection', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def gameselection(ctx):
 
     """
@@ -167,8 +188,13 @@ async def gameselection(ctx):
     await customcommands.send_game_selection_panel(ctx)
 
 
+@gameselection.error
+async def gameselection_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
 @client.command(name='helppanel', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def helppanel(ctx):
 
     """
@@ -180,12 +206,12 @@ async def helppanel(ctx):
 
 
 @helppanel.error
-async def helppanel_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def helppanel_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='populate', pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def populate(ctx):
 
     """
@@ -198,12 +224,12 @@ async def populate(ctx):
 
 
 @populate.error
-async def populate_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def populate_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name="tweet", pass_context=True)
-@has_permissions(administrator=True)
+@is_authed_user()
 async def tweet(ctx):
 
     """
@@ -216,7 +242,7 @@ async def tweet(ctx):
 
 
 @tweet.error
-async def tweet_error(error, ctx):
-    print(f"This user does not have perms does not have permissions to enter this command!: {error}")
+async def tweet_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 client.run(os.environ['TOKEN'])

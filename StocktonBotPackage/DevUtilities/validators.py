@@ -1,5 +1,6 @@
-import discord
 from StocktonBotPackage.DevUtilities import configparser
+import discord
+
 
 config = configparser.get_parsed_config()
 

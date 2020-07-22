@@ -52,3 +52,13 @@ def get_sheet_events_subscriptions():
 def get_sheet_blue_room_reservations():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('PC RESERVATIONS - BLUE ROOM')
     return sheet
+
+
+def get_sheet_authed_users():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('AUTHORIZED BOT CMD USERS')
+    return sheet
+
+
+def get_sheet_channel_names():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CHANNELS')
+    return sheet

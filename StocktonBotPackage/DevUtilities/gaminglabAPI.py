@@ -22,7 +22,7 @@ def open_browser_driver():
     try:
         options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
     except Exception:
-        pass
+        pass  # A binary location does not need to specified if the bot is running locally
 
     options.add_argument("--headless")  # For general purposes
     options.add_argument('--disable-gpu')  # For Heroku
