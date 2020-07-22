@@ -34,7 +34,7 @@ client = open_google_sheets_client()  #
 
 def get_sheet_help_directory_contact_cards():
 
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('HELP DIRECTORY CONTACT CARDS')
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CONTACT CARDS')
     return sheet
 
 
