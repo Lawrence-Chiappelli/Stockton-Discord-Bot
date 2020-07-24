@@ -33,14 +33,27 @@ async def scrape_website(client):
 
     # TODO: Pull channel names from gsheets config
 
-    bot_channel = discord.utils.get(client.get_all_channels(), name=config['channel']['botcommands'])
+    try:
+        bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+    except (NameError, Exception) as e:
+
+        """
+        Generally speaking, I'd like to use the channel name from
+        Google sheets, but in the case it's down, it's critical
+        that we look for a default name.
+        """
+
+        print(f"USING DEFAULT GAME LAB CHANNEL! Error:\n{e}")
+        bot_commands_channel_name = config['channel']['botcommands']
+    bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
+
     if scraper.is_scraping:
         await bot_channel.send("Aborting - There is already one running instance of the web scraper.")
         return
 
     while True:
         if not await validators.machine_availabilty_embed_exists(client):
-            await bot_channel.send(f"Machine availability panels must first exist in the channel `#{config['channel']['gamelabavailability']}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
+            await bot_channel.send(f"Machine availability panels must first exist in the channel `#{bot_commands_channel_name}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
             scraper.is_scraping = False
             return
 
@@ -61,7 +74,7 @@ async def scrape_website(client):
 
 async def update_machine_availability_embed(guild, pc_statuses):
 
-    game_lab_channel_name = config['channel']['gamelabavailability']
+    game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
     channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
     messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
 
@@ -206,8 +219,8 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
     """
 
     auth_emoji = config['emoji']['authed']
-    auth_channel = config['channel']['landing']
-    gameselection_channel = config['channel']['gameselection']
+    auth_channel = gsheetsAPI.get_landing_channel_name()
+    gameselection_channel = gsheetsAPI.get_game_selection_channel_name()
     game_emojis = dict(config.items('emoji-games'))
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):

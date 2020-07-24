@@ -1,4 +1,4 @@
-from StocktonBotPackage.DevUtilities import configparser
+from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI
 from collections import OrderedDict
 import discord
 import tweepy
@@ -362,8 +362,8 @@ class Poll:
         2 second intervals.
 
         """
-        social_chan_name = config['channel']['socialmediafeed']
-        commands_chan_name = config['channel']['botcommands']
+        social_chan_name = gsheetsAPI.get_social_media_feed_channel_name()
+        commands_chan_name = gsheetsAPI.get_bot_commands_channel_name()
         listener.social_media_channel = discord.utils.get(client.get_all_channels(), name=social_chan_name)
         listener.commands_channel = discord.utils.get(client.get_all_channels(), name=commands_chan_name)
 
@@ -487,7 +487,8 @@ async def populate_channel_with_tweets(context):
     :param debug_channel: the channel typed in to debug messages
     """
 
-    debug_channel = discord.utils.get(context.message.guild.channels, name=config['channel']['botcommands'])
+    bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+    debug_channel = discord.utils.get(context.message.guild.channels, name=bot_commands_channel_name)
 
     num_tweets = 20
     queue_wrapper.is_populating = True

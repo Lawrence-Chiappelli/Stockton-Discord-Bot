@@ -1,4 +1,4 @@
-from StocktonBotPackage.DevUtilities import configparser
+from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI
 import discord
 
 
@@ -18,9 +18,9 @@ def is_bot_reaction_function(emoji, channel):
     additional functionality.
     """
 
-    bot_channels = dict(config.items('channel'))
     bot_emojis = dict(config.items('emoji'))
     game_emojis = dict(config.items('emoji-games'))
+    bot_channels = gsheetsAPI.get_sheet_channel_names().col_values(2)
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # If custom emoji, the name needs to be grabbed
         emoji = str(emoji.name)
@@ -30,7 +30,7 @@ def is_bot_reaction_function(emoji, channel):
     if not isinstance(channel, str):
         channel = str(channel)
 
-    if channel in bot_channels.values() and (emoji in bot_emojis.values() or emoji in game_emojis.values() ):
+    if channel in bot_channels and (emoji in bot_emojis.values() or emoji in game_emojis.values() ):
         return True
 
     return False
@@ -38,7 +38,18 @@ def is_bot_reaction_function(emoji, channel):
 
 async def machine_availabilty_embed_exists(client):
 
-    game_lab_channel_name = config['channel']['gamelabavailability']
+    try:
+        game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
+    except (NameError, Exception) as e:
+
+        """
+        Generally speaking, I'd like to use the channel name from
+        Google sheets, but in the case it's down, it's critical
+        that we look for a default name.
+        """
+
+        print(f"USING DEFAULT GAME LAB CHANNEL! Error:\n{e}")
+        game_lab_channel_name = config['channel']['gamelabavailability']
     channel = discord.utils.get(client.get_all_channels(), name=game_lab_channel_name)
 
     try:
