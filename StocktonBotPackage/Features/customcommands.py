@@ -52,13 +52,14 @@ async def scrape_website(client):
         return
 
     while True:
+
         if not await validators.machine_availabilty_embed_exists(client):
             await bot_channel.send(f"Machine availability panels must first exist in the channel `#{bot_commands_channel_name}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
             scraper.is_scraping = False
             return
 
         scraper.is_scraping = True
-        await bot_channel.send(f"Checking for machine availability...")
+        print(f"Checking for machine availability...")
         try:
             pc_statuses = gaminglabAPI.get_pc_availability()
         except Exception as e:
@@ -67,9 +68,11 @@ async def scrape_website(client):
             scraper.is_scraping = False
             return
 
-        await bot_channel.send(f"Updating the embed with the following statuses:\n{pc_statuses}")
+        print(f"Updating the embed with the following statuses:\n{pc_statuses}")
         await update_machine_availability_embed(client, pc_statuses)
+        print("Control given to Twitter feed...")
         await asyncio.sleep(5)  # Control is given to Twitter feed for 5 seconds
+        print(f"...control returned!")
 
 
 async def update_machine_availability_embed(guild, pc_statuses):
@@ -96,6 +99,7 @@ async def update_machine_availability_embed(guild, pc_statuses):
                 value = value[::-1]  # Reverse the string, so that reserved comes first
 
             embed.set_field_at(index=i, name=f"{i+1} 🖥️", value=value, inline=True)
+
         await msg.edit(embed=embed)
 
 
