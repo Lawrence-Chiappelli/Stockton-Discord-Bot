@@ -23,6 +23,17 @@ scraper = Scraper(False)  #
 # Only one should be allowed at any given time.
 
 
+def force_off(client):
+    try:
+        scraper.is_scraping = False
+        bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+        bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
+        await bot_channel.send("Web scraper successfully turned off!")
+    except Exception as e:
+        print(f"Unable to force off!")
+
+
+
 async def scrape_website(client):
 
     """
@@ -66,13 +77,17 @@ async def scrape_website(client):
             print(f"Unable to scrape data!:\n{e}")
             await bot_channel.send(f"Exception caught scraping data:\n{e}")
             scraper.is_scraping = False
-            return
+            break
 
         print(f"Updating the embed with the following statuses:\n{pc_statuses}")
         await update_machine_availability_embed(client, pc_statuses)
         print("Control given to Twitter feed...")
         await asyncio.sleep(5)  # Control is given to Twitter feed for 5 seconds
         print(f"...control returned!")
+
+    scraper.is_scraping = True
+    await bot_channel.send(f"Restarting scraper after exception...")
+    await scrape_website(client)
 
 
 async def update_machine_availability_embed(guild, pc_statuses):

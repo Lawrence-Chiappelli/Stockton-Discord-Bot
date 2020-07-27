@@ -245,4 +245,22 @@ async def tweet(ctx):
 async def tweet_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
+
+@client.command(name="forceoff", pass_context=True)
+@is_authed_user()
+async def forceoff(ctx):
+
+    """
+    Force turn off the web scraper (if exception caused API to break)
+    :param ctx: context
+    :return: None
+    """
+
+    await customcommands.force_off(client)
+
+
+@forceoff.error
+async def forceoff_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
 client.run(os.environ['TOKEN'])
