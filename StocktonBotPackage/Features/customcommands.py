@@ -23,7 +23,7 @@ scraper = Scraper(False)  #
 # Only one should be allowed at any given time.
 
 
-def force_off(client):
+async def force_off(client):
     try:
         scraper.is_scraping = False
         bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
