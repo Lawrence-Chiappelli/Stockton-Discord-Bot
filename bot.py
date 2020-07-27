@@ -246,6 +246,24 @@ async def tweet_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
+@client.command(name="gmpanel", pass_context=True)
+@is_authed_user()
+async def gmpanel(ctx):
+
+    """
+    Send out the last tweet (if the auto retriever fails)
+    :param ctx: context
+    :return: None
+    """
+
+    await helpcontactinfo.send_gm_panel(client, ctx)
+
+
+@gmpanel.error
+async def gmpanel(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
 @client.command(name="forceoff", pass_context=True)
 @is_authed_user()
 async def forceoff(ctx):

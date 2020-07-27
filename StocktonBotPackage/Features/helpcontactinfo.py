@@ -76,3 +76,75 @@ async def send_help_panel(context, client):
     embed.set_footer(
         text="🔼 Up above contains roles and responsibility directly specific to our Esports program. 🔼")
     await context.send(embed=embed)
+
+
+async def send_gm_panel(client, context):
+
+    await context.message.delete()
+
+    current_message_channel_name = context.channel.name
+    gm_sheet = gsheetsAPI.get_sheet_gms()
+
+    role_titles = gm_sheet.col_values(1)
+    names = gm_sheet.col_values(2)
+    emails = gm_sheet.col_values(3)
+    colors = gm_sheet.col_values(4)
+    user_ids = gm_sheet.col_values(5)
+    descriptions = gm_sheet.col_values(6)
+    channel_names = gm_sheet.col_values(7)
+    icon_links = gm_sheet.col_values(8)
+
+    del role_titles[0:4]
+    del names[0:4]
+    del emails[0:4]
+    del colors[0:4]
+    del user_ids[0:4]
+    del descriptions[0:4]
+    del channel_names[0:4]
+    del icon_links[0:4]
+
+    for i, channel_name in enumerate(channel_names):
+
+        if channel_name == current_message_channel_name:
+
+                emoji = discord.utils.get(context.guild.emojis, name=str(channel_name).capitalize())
+
+                role_gm = discord.utils.get(context.guild.roles, name="Game Manager")  # TODO: Allow for config
+                print(f"Channel name: {channel_name}")
+                role_game_name = str(channel_name).replace("-", " ").title().replace("Of", "of").replace("Fifa", "FIFA").replace("Csgo", "CS:GO")  #TODO: Better setup
+                print(f'Role game name: {role_game_name}')
+                role_game = discord.utils.get(context.guild.roles, name=role_game_name)
+                print(f'Role game: {role_game}')
+
+                if names[i] == "n/a" or names[i] == "" or names[i] is None:
+
+                    print(f"Help wanted. Found Names[i] to be: {names[i]}")
+
+                    help_directory_name = gsheetsAPI.get_help_directory_channel_name()
+                    help_directory_channel = discord.utils.get(context.guild.channels, name=help_directory_name)
+
+                    names[i] = "Help wanted!"
+                    emails[i] = "N/A"
+                    member_name = f"See {help_directory_channel.mention}"
+                    description = f"We are currently looking for **{role_gm.mention}s** for the game title **{role_game.mention}**!"
+                    url = ""
+                else:
+                    member = discord.utils.get(context.guild.members, id=int(user_ids[i]))
+                    member_name = member.mention
+                    description = f"Looking for the **{role_game.mention}** **{role_gm.mention}**? Please message me!"
+                    url = member.avatar_url
+
+                embed = discord.Embed(title=f"{names[i]}",
+                                      description=f"{description}",
+                                      color=int(colors[i], 16))
+                embed.set_author(name=f"{role_titles[i]}",
+                                 icon_url=icon_links[i])
+                embed.set_thumbnail(url=url)
+                embed.add_field(name=f"`Discord Contact:`",
+                                value=f"{member_name}",
+                                inline=True)
+                embed.add_field(name=f"`Email Contact:`",
+                                value=f"**{emails[i]}**",
+                                inline=True)
+                await context.send(embed=embed)
+                break

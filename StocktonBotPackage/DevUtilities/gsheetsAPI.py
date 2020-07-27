@@ -64,6 +64,11 @@ def get_sheet_channel_names():
     return sheet
 
 
+def get_sheet_gms():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('GAME MANAGERS')
+    return sheet
+
+
 """
 The following are indeed dynamic, but the channel types themselves are common enough
 to warrant separate methods that pull individual cell information.

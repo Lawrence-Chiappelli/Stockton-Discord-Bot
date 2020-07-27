@@ -33,7 +33,6 @@ async def force_off(client):
         print(f"Unable to force off!")
 
 
-
 async def scrape_website(client):
 
     """
