@@ -88,6 +88,7 @@ class GsheetsChannelIndice:
         self.bot_command = 3
         self.game_selection = 4
         self.gaming_lab = 5
+        self.event_subscriptions = 6
 
 
 channel_indice = GsheetsChannelIndice()
@@ -143,5 +144,22 @@ def get_game_lab_channel_name():
     sheet = get_sheet_channel_names()
     channel_names = sheet.col_values(2)
     del channel_names[0:4]
-    gaming_lab_availability_channel = channel_names[channel_indice.gaming_lab]
-    return gaming_lab_availability_channel
+    gaming_lab_availability_channel_name = channel_names[channel_indice.gaming_lab]
+    return gaming_lab_availability_channel_name
+
+
+def get_event_subscriptions_channel_name():
+
+    sheet = get_sheet_channel_names()
+    channel_names = sheet.col_values(2)
+    del channel_names[0:4]
+    event_subscriptions_channel_name = channel_names[channel_indice.event_subscriptions]
+    return event_subscriptions_channel_name
+
+
+def get_event_emojis():
+
+    sheet = get_sheet_events_subscriptions()
+    emojis = sheet.col_values(2)
+    del emojis[0:4]
+    return emojis

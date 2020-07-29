@@ -199,6 +199,7 @@ async def helppanel(ctx):
 
     """
     Send out the default help panel for navigational help.
+    :param ctx: Context
     :return: None
     """
 
@@ -207,6 +208,23 @@ async def helppanel(ctx):
 
 @helppanel.error
 async def helppanel_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name='eventpanel', pass_context=True)
+@is_authed_user()
+async def eventpanel(ctx):
+
+    """
+    Send out the event selection panel.
+    :param ctx: Context
+    :return: None
+    """
+
+    await customcommands.send_event_panel(ctx, client)
+
+@eventpanel.error
+async def eventpanel_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
@@ -251,7 +269,7 @@ async def tweet_error(ctx, error):
 async def gmpanel(ctx):
 
     """
-    Send out the last tweet (if the auto retriever fails)
+    Send out the game manager's contact info panel.
     :param ctx: context
     :return: None
     """

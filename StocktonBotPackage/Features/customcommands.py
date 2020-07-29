@@ -137,6 +137,38 @@ async def send_authentication_embed(context):
     return None
 
 
+async def send_event_panel(context, client):
+
+    await context.message.delete()
+    events_sheet = gsheetsAPI.get_sheet_events_subscriptions()
+    role_names = events_sheet.col_values(1)
+    emojis = events_sheet.col_values(2)  # These are already default, raw emojis
+    description_values = events_sheet.col_values(3)
+
+    del role_names[0:4]
+    del emojis[0:4]
+    del description_values[0:4]
+
+    embed = discord.Embed(
+        description="Interested in participating in one or more of our events? Check out below what we have to offer and you'll be pinged with the corresponding role when an event is happening!",
+        color=0xff4d4d)
+    embed.set_author(name="📆 Role Menu: Event Subscriptions")
+    embed.set_thumbnail(url="https://image.flaticon.com/icons/png/512/1458/1458512.png")
+    embed.set_footer(
+        text="By reacting below, you will receive one of the corresponding event roles above! You will be pinged when an event is happening.")
+
+    for i, role_name in enumerate(role_names):
+
+        role = discord.utils.get(context.guild.roles, name=role_name)
+        embed.add_field(name=f"{emojis[i]} - {role_name}", value=f"{role.mention} | {description_values[i]}", inline=True)
+
+    await context.send(embed=embed)
+    last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
+    for emoji in emojis:
+        await last_message.add_reaction(emoji)
+
+
+
 async def send_machine_availability_embed(context):
 
     await context.message.delete()
@@ -239,7 +271,9 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
     auth_emoji = config['emoji']['authed']
     auth_channel = gsheetsAPI.get_landing_channel_name()
     gameselection_channel = gsheetsAPI.get_game_selection_channel_name()
+    events_channel = gsheetsAPI.get_event_subscriptions_channel_name()
     game_emojis = dict(config.items('emoji-games'))
+    event_emojis = gsheetsAPI.get_event_emojis()
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):
         emoji = emoji.name
@@ -262,6 +296,35 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
         else:
             if game_role in member.roles:
                 await member.remove_roles(game_role)
+    elif str(emoji) in event_emojis and str(channel) == events_channel:  # Event emojis here is list and not dict
+
+        event_sheet = gsheetsAPI.get_sheet_events_subscriptions()
+        event_role_names = event_sheet.col_values(1)
+        event_emojis = event_sheet.col_values(2)
+        del event_role_names[0:4]
+        del event_emojis[0:4]
+
+        role_name = None
+        """
+        For built-in emojis, we have to iterate through
+        our list of wanted emojis and extract
+        the corresponding role name
+        """
+        for i, event_role_name in enumerate(event_role_names):
+            if emoji == event_emojis[i]:
+                role_name = event_role_name
+                break
+
+        if role_name is None:
+            return None
+
+        event_role = discord.utils.get(member.guild.roles, name=role_name)
+
+        if is_add and event_role not in member.roles:
+            await member.add_roles(event_role)
+        else:
+            if event_role in member.roles:
+                await member.remove_roles(event_role)
 
     return None
 

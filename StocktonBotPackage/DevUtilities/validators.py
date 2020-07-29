@@ -20,7 +20,10 @@ def is_bot_reaction_function(emoji, channel):
 
     bot_emojis = dict(config.items('emoji'))
     game_emojis = dict(config.items('emoji-games'))
+    event_emojis = gsheetsAPI.get_sheet_events_subscriptions().col_values(2)
     bot_channels = gsheetsAPI.get_sheet_channel_names().col_values(2)
+
+    del event_emojis[0:4]
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # If custom emoji, the name needs to be grabbed
         emoji = str(emoji.name)
@@ -30,7 +33,7 @@ def is_bot_reaction_function(emoji, channel):
     if not isinstance(channel, str):
         channel = str(channel)
 
-    if channel in bot_channels and (emoji in bot_emojis.values() or emoji in game_emojis.values() ):
+    if channel in bot_channels and (emoji in bot_emojis.values() or emoji in game_emojis.values() or emoji in str(event_emojis)):
         return True
 
     return False
