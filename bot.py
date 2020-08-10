@@ -312,7 +312,7 @@ async def calendar(ctx):
     await customcommands.send_calendar(ctx)
 
 
-@forceoff.error
+@calendar.error
 async def calendar_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
