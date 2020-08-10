@@ -299,4 +299,21 @@ async def forceoff(ctx):
 async def forceoff_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
+
+@client.command(name="calendar", pass_context=True)
+@is_authed_user()
+async def calendar(ctx):
+
+    """
+    :param ctx:
+    :return:
+    """
+
+    await customcommands.send_calendar(ctx)
+
+
+@forceoff.error
+async def calendar_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
 client.run(os.environ['TOKEN'])

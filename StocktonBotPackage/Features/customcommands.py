@@ -329,6 +329,38 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
     return None
 
 
+async def send_calendar(context):
+
+    await context.message.delete()
+
+    events_channel_name = gsheetsAPI.get_event_subscriptions_channel_name()
+    events_channel = discord.utils.get(context.guild.channels, name=events_channel_name)
+
+    events_calendar_sheet = gsheetsAPI.get_sheet_calendar()
+    calendar_link = events_calendar_sheet.col_values(1)
+    calendar_image_thumbnail = events_calendar_sheet.col_values(2)
+    calendar_embed_color = events_calendar_sheet.col_values(3)
+    del calendar_link[0:4]
+    del calendar_image_thumbnail[0:4]
+    del calendar_embed_color[0:4]
+
+    link = calendar_link.pop(0)
+    embed = discord.Embed(title="Official Event Calendar",
+                          url=link,
+                          description="", color=int(calendar_embed_color.pop(0), 16))
+    embed.set_author(name="Stockton Esports",
+                     url=link,
+                     icon_url="https://i.pinimg.com/originals/62/d9/c0/62d9c02a5ba072fdd8ce0ad05782ea1a.jpg")
+    embed.set_thumbnail(
+        url=calendar_image_thumbnail.pop(0))
+    embed.add_field(name="Link:",
+                    value=link,
+                    inline=False)
+    embed.add_field(name="Event subscriptions channel:", value=events_channel.mention, inline=True)
+    embed.set_footer(text=f"Occasionally check #{events_channel.name} for new event subscriptions.")
+    await context.send(embed=embed)
+
+
 def get_num_members_with_role(role):
 
     num_members_with_role = 0

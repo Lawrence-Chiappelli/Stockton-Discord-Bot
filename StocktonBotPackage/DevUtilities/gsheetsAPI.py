@@ -69,6 +69,11 @@ def get_sheet_gms():
     return sheet
 
 
+def get_sheet_calendar():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CALENDAR')
+    return sheet
+
+
 """
 The following are indeed dynamic, but the channel types themselves are common enough
 to warrant separate methods that pull individual cell information.
