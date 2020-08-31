@@ -367,19 +367,25 @@ class Poll:
         listener.social_media_channel = discord.utils.get(client.get_all_channels(), name=social_chan_name)
         listener.commands_channel = discord.utils.get(client.get_all_channels(), name=commands_chan_name)
 
+        await listener.commands_channel.send("Starting Twitter feed!")
+
         print(f"Polling for stream...")
         while True:
 
-            await asyncio.sleep(self._poll_rate)
-            if listener.static_data and listener.dynamic_data:
-                await embed_and_send(listener.static_data, listener.dynamic_data)
-                listener.static_data = None
-                listener.dynamic_data = None
-            elif listener.error:
-                await listener.commands_channel.send(f"ERROR: {listener.error}\n*Unable to update Twitter feed*: __https://developer.twitter.com/en/docs/basics/response-codes__")
-                listener.error = None
+            try:
+                await asyncio.sleep(self._poll_rate)
+                if listener.static_data and listener.dynamic_data:
+                    await embed_and_send(listener.static_data, listener.dynamic_data)
+                    listener.static_data = None
+                    listener.dynamic_data = None
+                elif listener.error:
+                    print(f"Now here instead")
+                    await listener.commands_channel.send(f"ERROR: {listener.error}\n*Unable to update Twitter feed*: __https://developer.twitter.com/en/docs/basics/response-codes__")
+                    listener.error = None
 
-            await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
+            except Exception as e:
+                print(f"Some unknown exception caught trying to poll stream, retrying!:\n\n{e}")
 
     async def poll_for_tweet_updates(self):
 

@@ -29,16 +29,9 @@ async def on_ready():
     print(f"Bot ready! (in {1000 * (after - before)} milliseconds!)")
 
     if await validators.machine_availabilty_embed_exists(client):
-        print(f"Checks passed! Scraping for website and polling for tweets...")
-        # ----------------------------------------------------- #
-        await asyncio.wait(
-            [
-                customcommands.scrape_website(client),
-                twitter_poller.poll_for_data_from_stream(client),
-                twitter_poller.poll_for_tweet_updates()
-            ]
-        )
-        # ----------------------------------------------------- #
+        print(f"Checks passed! Turning on game lab availability...")
+        await asyncio.wait([customcommands.scrape_website(client)])
+
     else:
         print(f"Not pinging for lab updates, visual PC availability interface missing.")
 
@@ -223,8 +216,32 @@ async def eventpanel(ctx):
 
     await customcommands.send_event_panel(ctx, client)
 
+
 @eventpanel.error
 async def eventpanel_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name='stream', pass_context=True)
+@is_authed_user()
+async def stream(ctx):
+
+    """
+    Start the Twitter streaming process
+    :param ctx: context
+    :return: None
+    """
+
+    await asyncio.wait(
+        [
+            twitter_poller.poll_for_data_from_stream(client),
+            twitter_poller.poll_for_tweet_updates()
+        ]
+    )
+
+
+@stream.error
+async def stream_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
@@ -305,6 +322,7 @@ async def forceoff_error(ctx, error):
 async def calendar(ctx):
 
     """
+    Send out the google docs calendar embed
     :param ctx:
     :return:
     """
@@ -314,6 +332,42 @@ async def calendar(ctx):
 
 @calendar.error
 async def calendar_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name="boosters", pass_context=True)
+@is_authed_user()
+async def boosters(ctx):
+
+    """
+    Get server boosters
+    :param ctx:
+    :return:
+    """
+
+    await customcommands.send_boosters_panel(ctx)
+
+
+@boosters.error
+async def boosters_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name="metrics", pass_context=True)
+@is_authed_user()
+async def metrics(ctx):
+
+    """
+    Get server metrics (WIP! On the TODO list)
+    :param ctx:
+    :return:
+    """
+
+    pass
+
+
+@metrics.error
+async def metrics_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 client.run(os.environ['TOKEN'])

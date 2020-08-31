@@ -1,6 +1,7 @@
 # Abstract the command content away from bot.py and keep it clean.
 
 from StocktonBotPackage.DevUtilities import configparser, validators, gaminglabAPI, gsheetsAPI
+from datetime import datetime
 import discord
 import asyncio
 import re
@@ -24,13 +25,16 @@ scraper = Scraper(False)  #
 
 
 async def force_off(client):
+
+    bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+    bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
+
     try:
         scraper.is_scraping = False
-        bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-        bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
         await bot_channel.send("Web scraper successfully turned off!")
     except Exception as e:
         print(f"Unable to force off!")
+        await bot_channel.send(f"Exception caught tyring to turn off webscraper:\n\n{e}")
 
 
 async def scrape_website(client):
@@ -74,30 +78,34 @@ async def scrape_website(client):
             pc_statuses = gaminglabAPI.get_pc_availability()
         except Exception as e:
             print(f"Unable to scrape data!:\n{e}")
-            await bot_channel.send(f"Exception caught scraping data:\n{e}")
-            scraper.is_scraping = False
-            break
+            await bot_channel.send(f"Exception caught scraping data:\n{e}\n\nTrying again in `25` seconds")
+            await asyncio.sleep(25)
+            continue
 
         print(f"Updating the embed with the following statuses:\n{pc_statuses}")
         await update_machine_availability_embed(client, pc_statuses)
-        print("Control given to Twitter feed...")
-        await asyncio.sleep(5)  # Control is given to Twitter feed for 5 seconds
-        print(f"...control returned!")
-
-    scraper.is_scraping = True
-    await bot_channel.send(f"Restarting scraper after exception...")
-    await scrape_website(client)
+        print(F"Trying again in 25 seconds")
+        await asyncio.sleep(25)
 
 
 async def update_machine_availability_embed(guild, pc_statuses):
+
+    """
+    :param guild: A guild object, responsible for outputting updates
+    :param pc_statuses: A list, grabbed from gaminglabAPI.get_pc_availability()
+    :return:
+    """
 
     game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
     channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
     messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
 
-    reservations_sheet = gsheetsAPI.get_sheet_blue_room_reservations()
+    reservations_sheet = gsheetsAPI.get_sheet_blue_room_reservations()  # TODO: Gold room support
     reservations = reservations_sheet.col_values(2)
+    description = reservations_sheet.col_values(3)
+
     del reservations[0:4]
+    del description[0:4]
 
     for msg in messages:  # There's only 2 of these embeds, meaning the worst time complexity is irrelevant
         embed = msg.embeds[0]
@@ -114,6 +122,19 @@ async def update_machine_availability_embed(guild, pc_statuses):
 
             embed.set_field_at(index=i, name=f"{i+1} 🖥️", value=value, inline=True)
 
+        if embed.title == config['lab']['blueroomnumber']:
+            room = config['lab']['blueroom']
+        elif embed.title == config['lab']['goldroomnumber']:
+            room = config['lab']['goldroom']
+        else:
+            room = "Room 0"
+
+        if description:
+            description = room + "\n\n`" + description[0] + "`"
+        else:
+            description = room
+
+        embed.description = description
         await msg.edit(embed=embed)
 
 
@@ -173,7 +194,7 @@ async def send_machine_availability_embed(context):
 
     await context.message.delete()
 
-    embed = discord.Embed(title="Room 1", description="🔵 Blue room 🔵", color=0x5294ff)
+    embed = discord.Embed(title=config['lab']['blueroomnumber'], description=config['lab']['blueroom'], color=0x5294ff)
     embed.set_author(name="💻 Gaming Lab Machine Availability", url=config['website']['url'])
     embed.set_thumbnail(url="https://i.imgur.com/eVqogAY.jpg")
 
@@ -358,6 +379,31 @@ async def send_calendar(context):
                     inline=False)
     embed.add_field(name="Event subscriptions channel:", value=events_channel.mention, inline=True)
     embed.set_footer(text=f"Occasionally check #{events_channel.name} for new event subscriptions.")
+    await context.send(embed=embed)
+
+
+async def send_boosters_panel(context):
+
+    boosters = context.guild.premium_subscribers
+    today = datetime.today()
+
+    embed = discord.Embed(color=0xff8080)
+    embed.set_thumbnail(url="https://pbs.twimg.com/media/EWdeUeHXkAQgJh7.png")
+
+    all_boosters = {}
+    for booster in boosters:
+        delta = today - booster.premium_since
+
+        if delta.days in all_boosters:  # If duplicate amount of days
+            all_boosters[delta.days] += f", {booster.mention}"  # Don't overwrite key
+        else:
+            all_boosters[delta.days] = booster.mention
+
+    sorted_boosters = sorted(all_boosters.items(), reverse=True)
+    for key, value in sorted_boosters:  # Note the () after items!
+        embed.set_author(name="Server Boosters", icon_url="https://ponyvilleplaza.com/files/img/boost.png")
+        embed.add_field(name=f"{key} days", value=value, inline=False)
+
     await context.send(embed=embed)
 
 

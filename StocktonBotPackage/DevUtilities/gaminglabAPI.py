@@ -16,7 +16,7 @@ config = configparser.get_parsed_config()  #
 
 def open_browser_driver():
 
-    print("Opening browser driver, please wait...")
+    print("Opening browser driver, please wait... (this takes the longest!)")
     options = webdriver.ChromeOptions()  # executable_path="C:\Program Files\Chrome Driver\chromedriver.exe"
 
     try:
@@ -31,9 +31,23 @@ def open_browser_driver():
     browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
 
     browser.get(config['website']['url'])
-    browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame1']))
-    browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame2']))
-    browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
+
+    """
+    IMPORTANT: Selenium may have, very OCCASIONALLY, an issue where it
+    cannot find the following specified iframes.
+    Please see the workaround I've created
+    """
+
+    while True:
+        try:
+            browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame1']))
+            browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame2']))
+            browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
+            break
+        except Exception as no_such_element_exception:
+            print(f"Unknown exception caught trying to located website iframes, retrying. Exception:\n{no_such_element_exception}")
+            continue
+
     print("...browser driver ready for scraping!")
     return browser
 
