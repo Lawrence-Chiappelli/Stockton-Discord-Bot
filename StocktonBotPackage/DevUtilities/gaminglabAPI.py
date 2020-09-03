@@ -15,7 +15,7 @@ config = configparser.get_parsed_config()  #
 # -----------------------------------------+
 
 
-def open_browser_driver():
+async def open_browser_driver():
 
     print("Opening browser driver, please wait... (this takes the longest!)")
     options = webdriver.ChromeOptions()  # executable_path="C:\Program Files\Chrome Driver\chromedriver.exe"
@@ -54,9 +54,9 @@ def open_browser_driver():
     return browser
 
 
-# -------------------------------+
-browser = open_browser_driver()  #
-# -------------------------------+
+# -------------------------------------+
+browser = await open_browser_driver()  #
+# -------------------------------------+
 
 
 async def get_pc_availability():
