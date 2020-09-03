@@ -7,6 +7,7 @@ to login to labstats.com
 
 from selenium import webdriver
 from StocktonBotPackage.DevUtilities import configparser
+from time import sleep
 import asyncio
 import os
 
@@ -46,7 +47,7 @@ def open_browser_driver():
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
             break
         except Exception as no_such_element_exception:
-            await asyncio.sleep(5)
+            sleep(5)  # Process blocking is acceptable in this instance and also more convenient
             print(f"Unknown exception caught trying to located website iframes, retrying in 5 seconds. Exception:\n{no_such_element_exception}")
             continue
 
