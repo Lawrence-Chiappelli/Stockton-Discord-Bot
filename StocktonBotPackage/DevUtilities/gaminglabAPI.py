@@ -7,6 +7,7 @@ to login to labstats.com
 
 from selenium import webdriver
 from StocktonBotPackage.DevUtilities import configparser
+import asyncio
 import os
 
 # -----------------------------------------+
@@ -45,7 +46,8 @@ def open_browser_driver():
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
             break
         except Exception as no_such_element_exception:
-            print(f"Unknown exception caught trying to located website iframes, retrying. Exception:\n{no_such_element_exception}")
+            await asyncio.sleep(5)
+            print(f"Unknown exception caught trying to located website iframes, retrying in 5 seconds. Exception:\n{no_such_element_exception}")
             continue
 
     print("...browser driver ready for scraping!")
@@ -57,7 +59,7 @@ browser = open_browser_driver()  #
 # -------------------------------+
 
 
-def get_pc_availability():
+async def get_pc_availability():
 
     try:
 
@@ -72,9 +74,9 @@ def get_pc_availability():
 
         return pc_statuses
 
-    except Exception as exception:
-        print(f"Could not find browser attribute:\n{exception}")
-        browser.quit()  # Try restarting the browser if there's an issue
-        open_browser_driver()
+    except Exception as stale_reference_element:
+        print(f"Could not find browser attribute. The following is the exception:\n{stale_reference_element}\nFORCE TRYING AGAIN IN 5 SECONDS")
+        await asyncio.sleep(5)
+        await get_pc_availability()
 
     return None

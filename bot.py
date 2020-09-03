@@ -353,6 +353,24 @@ async def boosters_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
+@client.command(name="faq", pass_context=True)
+@is_authed_user()
+async def faq(ctx):
+
+    """
+    Send out the FAQ panel
+    :param ctx:
+    :return:
+    """
+
+    await customcommands.send_faq_panel(ctx)
+
+
+@faq.error
+async def faq_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
 @client.command(name="metrics", pass_context=True)
 @is_authed_user()
 async def metrics(ctx):

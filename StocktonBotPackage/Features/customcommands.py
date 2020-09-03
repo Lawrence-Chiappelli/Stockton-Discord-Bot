@@ -75,7 +75,7 @@ async def scrape_website(client):
         scraper.is_scraping = True
         print(f"Checking for machine availability...")
         try:
-            pc_statuses = gaminglabAPI.get_pc_availability()
+            pc_statuses = await gaminglabAPI.get_pc_availability()
         except Exception as e:
             print(f"Unable to scrape data!:\n{e}")
             await bot_channel.send(f"Exception caught scraping data:\n{e}\n\nTrying again in `25` seconds")
@@ -189,7 +189,6 @@ async def send_event_panel(context, client):
         await last_message.add_reaction(emoji)
 
 
-
 async def send_machine_availability_embed(context):
 
     await context.message.delete()
@@ -221,8 +220,8 @@ async def send_machine_availability_embed(context):
     is added on website
     """
 
-    # embed = discord.Embed(title="Room 2", description="🟡 Gold room 🟡", color=0xf1ff33)
-    # embed.set_author(name="💻 Gaming Lab Machine Availability")
+    # embed = discord.Embed(title=config['lab']['goldroomnumber'],description=config['lab']['goldroom'], color=0xf1ff33)
+    # embed.set_author(name="💻 Gaming Lab Machine Availability", url=config['website']['url'])
     # embed.set_thumbnail(url="https://i.imgur.com/eVqogAY.jpg")
     # embed.add_field(name="1 🖥️", value="✅", inline=True)
     # embed.add_field(name="2 🖥️", value="✅", inline=True)
@@ -239,7 +238,7 @@ async def send_machine_availability_embed(context):
     # embed.add_field(name="13 🖥️", value="✅", inline=True)
     # embed.add_field(name="14 🖥️", value="✅", inline=True)
     # embed.add_field(name="15 🖥️", value="✅", inline=True)
-    # embed.set_footer(text="Available ✅ | In-Use ❌")
+    # embed.set_footer(text=f"Available {config['lab-icons']['available']} | In-Use {config['lab-icons']['inuse']} | Reserved [{config['lab-icons']['reserved']}]\n\nStockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
     # await context.send(embed=embed)
 
     return None
@@ -403,6 +402,49 @@ async def send_boosters_panel(context):
     for key, value in sorted_boosters:  # Note the () after items!
         embed.set_author(name="Server Boosters", icon_url="https://ponyvilleplaza.com/files/img/boost.png")
         embed.add_field(name=f"{key} days", value=value, inline=False)
+
+    await context.send(embed=embed)
+
+
+async def send_faq_panel(context):
+
+    await context.message.delete()
+
+    faq_sheet = gsheetsAPI.get_sheet_faq()
+    questions = faq_sheet.col_values(1)
+    answers = faq_sheet.col_values(2)
+    del questions[0:4]
+    del answers[0:4]
+
+    faq_channel_name = gsheetsAPI.get_faq_channel_name()
+    help_dir_channel_name = gsheetsAPI.get_help_directory_channel_name()
+
+    faq_channel = discord.utils.get(context.guild.channels, name=faq_channel_name)
+    help_dir_channel = discord.utils.get(context.guild.channels, name=help_dir_channel_name)
+
+    if faq_channel is None:
+        bot_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+        bot_channel = discord.utils.get(context.guild.channels, name=bot_channel_name)
+        await bot_channel.send(f"Missing FAQ channel!")
+
+    try:
+        questions_channel = discord.utils.get(context.guild.channels, name="questions")
+    except Exception:
+        questions_channel = None
+
+    if questions_channel is None or help_dir_channel is None:
+        embed = discord.Embed(title=" ",
+                              description="Please view our available resources for more help.",
+                              color=0x52fffc)
+    else:
+        embed = discord.Embed(title=" ",
+                              description=f"For any additional questions, please see {questions_channel.mention} or {help_dir_channel.mention}!",
+                              color=0x52fffc)
+    embed.set_author(name="❔ FAQ")
+    embed.set_thumbnail(url="https://lh3.googleusercontent.com/proxy/NuskMuMLeEstVyxBKL5OLLQ4V-rULdK0fygraiaeqFaWVclGTaxCXz7RjVurr2GsZvS2ijr5H9_3wZPuPPRAYd5Vg-Q")
+
+    for i in range(len(questions)):
+        embed.add_field(name=questions[i], value=answers[i], inline=False)
 
     await context.send(embed=embed)
 

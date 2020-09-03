@@ -73,6 +73,10 @@ def get_sheet_calendar():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CALENDAR')
     return sheet
 
+def get_sheet_faq():
+    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('FAQ')
+    return sheet
+
 
 """
 The following are indeed dynamic, but the channel types themselves are common enough
@@ -94,6 +98,7 @@ class GsheetsChannelIndice:
         self.game_selection = 4
         self.gaming_lab = 5
         self.event_subscriptions = 6
+        self.faq = 7
 
 
 channel_indice = GsheetsChannelIndice()
@@ -159,6 +164,15 @@ def get_event_subscriptions_channel_name():
     channel_names = sheet.col_values(2)
     del channel_names[0:4]
     event_subscriptions_channel_name = channel_names[channel_indice.event_subscriptions]
+    return event_subscriptions_channel_name
+
+
+def get_faq_channel_name():
+
+    sheet = get_sheet_channel_names()
+    channel_names = sheet.col_values(2)
+    del channel_names[0:4]
+    event_subscriptions_channel_name = channel_names[channel_indice.faq]
     return event_subscriptions_channel_name
 
 
