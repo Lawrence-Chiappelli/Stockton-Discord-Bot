@@ -1,4 +1,4 @@
-from StocktonBotPackage.Features import customcommands, helpcontactinfo, twitterfeed
+from StocktonBotPackage.Features import customcommands, helpcontactinfo, twitterfeed, servermetrics
 from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI
 from discord.ext.commands import has_permissions, CheckFailure
 from discord.ext import commands
@@ -12,8 +12,6 @@ client = commands.Bot(command_prefix='!')  #
 # -----------------------------------------+
 config = configparser.get_parsed_config()  #
 # -----------------------------------------+
-twitter_poller = twitterfeed.Poll()        #
-# -----------------------------------------#
 
 @client.event
 async def on_connect():
@@ -222,9 +220,27 @@ async def eventpanel_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
-@client.command(name='stream', pass_context=True)
+@client.command(name="twitterthread", pass_context=True)
 @is_authed_user()
-async def stream(ctx):
+async def twitterthread(ctx):
+
+    """
+    Force auth *IF* 420 error. Wait 15 minutes!
+    :param ctx:
+    :return:
+    """
+
+    twitterfeed.force_thread_start_for_auth()
+
+
+@twitterthread.error
+async def faq_error(ctx, error):
+    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name='twitterstream', pass_context=True)
+@is_authed_user()
+async def twitterstream(ctx):
 
     """
     Start the Twitter streaming process
@@ -234,13 +250,13 @@ async def stream(ctx):
 
     await asyncio.wait(
         [
-            twitter_poller.poll_for_data_from_stream(client),
-            twitter_poller.poll_for_tweet_updates()
+            twitterfeed.twitter_poller.poll_for_data_from_stream(client),
+            twitterfeed.twitter_poller.poll_for_tweet_updates()
         ]
     )
 
 
-@stream.error
+@twitterstream.error
 async def stream_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
@@ -376,12 +392,12 @@ async def faq_error(ctx, error):
 async def metrics(ctx):
 
     """
-    Get server metrics (WIP! On the TODO list)
+    Get server metrics
     :param ctx:
     :return:
     """
 
-    pass
+    await servermetrics.display_metrics(ctx)
 
 
 @metrics.error

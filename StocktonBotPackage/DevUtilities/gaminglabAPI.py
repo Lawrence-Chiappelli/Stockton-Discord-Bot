@@ -7,7 +7,6 @@ to login to labstats.com
 
 from selenium import webdriver
 from StocktonBotPackage.DevUtilities import configparser
-from time import sleep
 import asyncio
 import os
 
@@ -21,35 +20,34 @@ def open_browser_driver():
     print("Opening browser driver, please wait... (this takes the longest!)")
     options = webdriver.ChromeOptions()  # executable_path="C:\Program Files\Chrome Driver\chromedriver.exe"
 
-    try:
-        options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
-    except Exception:
-        pass  # A binary location does not need to specified if the bot is running locally
-
-    options.add_argument("--headless")  # For general purposes
-    options.add_argument('--disable-gpu')  # For Heroku
-    options.add_argument('--no-sandbox')  # For Heroku
-    options.add_argument('--disable-dev-shm-usage')  # Hotfix found on StackOverflow
-    browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
-
-    browser.get(config['website']['url'])
-
-    """
-    IMPORTANT: Selenium may have, very OCCASIONALLY, an issue where it
-    cannot find the following specified iframes.
-    Please see the workaround I've created
-    """
-
     while True:
+        try:
+            options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
+        except Exception:
+            pass  # A binary location does not need to specified if the bot is running locally
+
+        options.add_argument("--headless")  # For general purposes
+        options.add_argument('--disable-gpu')  # For Heroku
+        options.add_argument('--no-sandbox')  # For Heroku
+        options.add_argument('--disable-dev-shm-usage')  # Hotfix found on StackOverflow
+        browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
+
+        browser.get(config['website']['url'])
+
+        """
+        IMPORTANT: Selenium may have, very OCCASIONALLY, an issue where it
+        cannot find the following specified iframes.
+        Please see the workaround I've created
+        """
+
         try:
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame1']))
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame2']))
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
             break
         except Exception as no_such_element_exception:
-            sleep(5)  # Process blocking is acceptable in this instance and also more convenient
-            print(f"Unknown exception caught trying to located website iframes, retrying in 5 seconds. Exception:\n{no_such_element_exception}")
-            continue
+            print(f"Unknown exception caught trying to locate website iframes, retrying until success (other processes will be blocked if this repeats)... \nException:\n{no_such_element_exception}")
+            browser.close()  # Retry the browser if there's an issue
 
     print("...browser driver ready for scraping!")
     return browser

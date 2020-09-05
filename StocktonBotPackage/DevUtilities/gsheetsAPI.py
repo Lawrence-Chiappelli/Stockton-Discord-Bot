@@ -1,5 +1,3 @@
-
-
 import gspread
 from StocktonBotPackage.DevUtilities import dropboxAPI
 from oauth2client.service_account import ServiceAccountCredentials
@@ -72,6 +70,7 @@ def get_sheet_gms():
 def get_sheet_calendar():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CALENDAR')
     return sheet
+
 
 def get_sheet_faq():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('FAQ')
@@ -182,3 +181,29 @@ def get_event_emojis():
     emojis = sheet.col_values(2)
     del emojis[0:4]
     return emojis
+
+
+def validate_resource_usage():
+
+    """
+    :return: True or False if able
+    to open a sheet
+
+    There seems to be no direct way of
+    accessing current rate limits
+    directly through the API.
+
+    In this case, if the client is
+    able to open any given sheet,
+    that means resource are still available,
+    and it returns True. Otherwise, it
+    return False.
+    """
+
+    try:
+        sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('FAQ')
+        if sheet:
+            return True
+        return False
+    except Exception:  # 429 error API resource exhausted
+        return False

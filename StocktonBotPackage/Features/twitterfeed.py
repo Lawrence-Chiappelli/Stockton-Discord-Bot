@@ -24,12 +24,31 @@ class TweepyClient:
         remaining = self.api.rate_limit_status()['resources']['application']['/application/rate_limit_status']['remaining']
         return remaining
 
+    def get_rates_timeline(self):
+
+        """
+        :return: Timeline remaining rates
+        """
+
+        return self.api.rate_limit_status()['resources']['statuses']['/statuses/user_timeline']['remaining']
+
+    def get_rates_id(self):
+
+        """
+        :return: ID remaining rates
+        """
+
+        return self.api.rate_limit_status()['resources']['statuses']['/statuses/show/:id']['remaining']
+
+    def get_all_rate_limits(self):
+        return self.api.rate_limit_status()
+
 
 class StdOutListener(tweepy.StreamListener):
 
     def __init__(self):
         super().__init__()
-        self.is_connected = False
+        self.is_threaded = False
         self.social_media_channel = None
         self.commands_channel = None
         self.static_data = None
@@ -53,6 +72,7 @@ class StdOutListener(tweepy.StreamListener):
         """
         print(f"ERROR: {status}")
         self.error = status
+        self.is_threaded = False
 
     def thread_stream(self):
 
@@ -63,6 +83,7 @@ class StdOutListener(tweepy.StreamListener):
         with disregard to process blocking
         """
 
+        self.is_threaded = True
         stream = tweepy.Stream(client.auth, listener)  # Listener is responsible for data handling
         stream.filter(follow=[client.user_id])
 
@@ -343,6 +364,7 @@ class TweetQueueWrapper:
 class Poll:
 
     def __init__(self):
+        self.is_polling = False
         self._poll_rate = 1  # In seconds
 
     async def poll_for_data_from_stream(self, client):
@@ -370,16 +392,16 @@ class Poll:
         await listener.commands_channel.send("Starting Twitter feed!")
 
         print(f"Polling for stream...")
+        self.is_polling = True
         while True:
-
             try:
                 await asyncio.sleep(self._poll_rate)
                 if listener.static_data and listener.dynamic_data:
+                    print(F"Trying...")
                     await embed_and_send(listener.static_data, listener.dynamic_data)
                     listener.static_data = None
                     listener.dynamic_data = None
                 elif listener.error:
-                    print(f"Now here instead")
                     await listener.commands_channel.send(f"ERROR: {listener.error}\n*Unable to update Twitter feed*: __https://developer.twitter.com/en/docs/basics/response-codes__")
                     listener.error = None
 
@@ -526,6 +548,7 @@ async def get_last_tweet():
     dynamic_data = tweet_data_wrapper.get_dynamic_data()
     await embed_and_send(static_data, dynamic_data)
 
+twitter_poller = Poll()  # Cut+paste to worker if this should automatically start
 tweet_data_wrapper = TweetDataRetrieverWrapper()
 queue_wrapper = TweetQueueWrapper()
 config = configparser.get_parsed_config()
@@ -533,6 +556,61 @@ listener = StdOutListener()
 profile = TweepyClient().api.get_user(TweepyClient().user_id)  # To make a single API call
 client = TweepyClient(profile)  # Now initialized the client with one profile
 thread = threading.Thread(target=listener.thread_stream, args=[])
+
+# TODO: Confirm if the following is needed to retrieve the instances' data
+# The motivation for this was due to getting conflicting results with both options
+# for server metrics. This may be a symptom of a deeper problem somewhere.
+
+# TODO: If so, it might be better to access the instance directly
+# instead of calling a function from the module.
+
+
+def get_account_error():
+
+    return listener.error
+
+
+def get_thread_status():
+
+    return listener.is_threaded
+
+
+def get_stream_status():
+
+    """
+    :return: Authorization status
+    to this specific listener object.
+    """
+
+    if listener.error:
+        return False
+
+    return True
+
+
+def get_poll_status():
+
+    return twitter_poller.is_polling
+
+
+def force_thread_start_for_auth():
+
+    """
+    :return:
+
+    Motivation: in instances
+    where 420 error occurs, users
+    can type the necessary command
+    to connect the stream account.
+
+    This may happen during each initial
+    bot run instance.
+
+    Rate limits reset after 15 minutes.
+    """
+
+    thread.start()
+
 
 # --------------#
 thread.start()  #  Comment / uncomment during development!! (Or keep in mind rate limits when testing)

@@ -1,6 +1,6 @@
 # Abstract the command content away from bot.py and keep it clean.
 
-from StocktonBotPackage.DevUtilities import configparser, validators, gaminglabAPI, gsheetsAPI
+from StocktonBotPackage.DevUtilities import configparser, validators, gaminglabAPI, gsheetsAPI, utils
 from datetime import datetime
 import discord
 import asyncio
@@ -76,10 +76,10 @@ async def scrape_website(client):
         print(f"Checking for machine availability...")
         try:
             pc_statuses = await gaminglabAPI.get_pc_availability()
-        except Exception as e:
-            print(f"Unable to scrape data!:\n{e}")
-            await bot_channel.send(f"Exception caught scraping data:\n{e}\n\nTrying again in `25` seconds")
-            await asyncio.sleep(25)
+        except Exception as resource_quota_exhausted:
+            print(f"Unable to scrape data! Quota exchausted?:\n{resource_quota_exhausted}")
+            await bot_channel.send(f"Exception caught scraping data! Retrying in 105 seconds. Error:\n{resource_quota_exhausted}")
+            await asyncio.sleep(105)
             continue
 
         print(f"Updating the embed with the following statuses:\n{pc_statuses}")
@@ -149,7 +149,7 @@ async def send_authentication_embed(context):
     embed.set_thumbnail(
         url="https://images.vexels.com/media/users/3/157931/isolated/preview/604a0cadf94914c7ee6c6e552e9b4487-curved-check-mark-circle-icon-by-vexels.png")
     embed.add_field(name="You will receive this role:", value=role.mention, inline=True)
-    embed.add_field(name="Users Authorized:", value=str(get_num_members_with_role(role)), inline=True)
+    embed.add_field(name="Users Authorized:", value=utils.get_num_members_with_role(role), inline=True)
     embed.set_footer(text="Stockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
     await context.message.channel.send(embed=embed)
     last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
@@ -304,11 +304,11 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
         message = [msg async for msg in channel.history(limit=1)].pop()
         embed = message.embeds[0]
         await asyncio.sleep(1)
-        embed.set_field_at(index=1, name=f"Users Authorized:", value=get_num_members_with_role(auth_role), inline=True)
+        embed.set_field_at(index=1, name=f"Users Authorized:", value=utils.get_num_members_with_role(auth_role), inline=True)
         await message.edit(embed=embed)
     elif str(emoji) in game_emojis.values() and str(channel) == gameselection_channel:
 
-        converted_name = convert_emoji_name_to_role(str(emoji))
+        converted_name = utils.convert_custom_emoji_name_to_role_name(str(emoji))
         game_role = discord.utils.get(member.guild.roles, name=converted_name)
 
         if is_add and game_role not in member.roles:
@@ -448,28 +448,3 @@ async def send_faq_panel(context):
 
     await context.send(embed=embed)
 
-
-def get_num_members_with_role(role):
-
-    num_members_with_role = 0
-    for member in role.guild.members:
-        if role in member.roles and not member.bot:
-            num_members_with_role += 1
-
-    return num_members_with_role
-
-
-def convert_emoji_name_to_role(emoji):
-
-    if str(emoji).isupper():
-        if "SG" in str(emoji):
-            converted_name = str(emoji).replace("SG", "S:G")  # Insert colon for CS:GO
-        else:
-            converted_name = str(emoji)  # And ignore if FIFA or otherwise all caps
-
-    else:
-        converted_name = re.sub(r"(\w)([A-Z])", r"\1 \2", str(emoji))
-        if "of" in converted_name:  # space before the 'of' in League of Legends
-            converted_name = str(converted_name).replace("of", " of")
-
-    return converted_name
