@@ -402,7 +402,9 @@ class Poll:
                     listener.static_data = None
                     listener.dynamic_data = None
                 elif listener.error:
-                    await listener.commands_channel.send(f"Twitter poll error: {listener.error}\n*Unable to update Twitter feed*. Please retry in __15__ minutes.")
+                    await listener.commands_channel.send(f"Twitter poll error: `{listener.error}`\n*Unable to update Twitter feed*. Please retry in __15__ minutes, or refer to the Twitter API response codes for more info.")
+                    self.is_polling = False
+                    break
                 else:
                     print(f"No messages in stream listener. Retrying in 5 seconds. Error: {listener.error}")
 
