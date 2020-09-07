@@ -23,16 +23,27 @@ before = time.time()
 
 @client.event
 async def on_ready():
+
     after = time.time()
-    print(f"Bot ready! (in {1000 * (after - before)} milliseconds!)")
+    milliseconds = 1000 * (after - before)
+    print(f"Bot ready! (in {milliseconds} milliseconds!)")
+
+    try:
+        server = client.get_guild(int(os.environ['DISCORD-ID-SERVER']))  # No client object to grab
+        channel = discord.utils.get(server.channels, name=config['channel']['botcommands'])
+    except KeyError as ke:
+        server = None
+        channel = None
+        print(f"No Discord server ID has been provided. This is okay. Exception\n{ke}")
+
+    if server and channel:
+        await channel.send(f"Bot successfully restarted in `{milliseconds}` milliseconds.\n\nTwitter poller needs to be started with `!twitterpoll`. See `!metrics`.")
 
     if await validators.machine_availabilty_embed_exists(client):
         print(f"Checks passed! Turning on game lab availability...")
         await asyncio.wait([customcommands.scrape_website(client)])
-
     else:
         print(f"Not pinging for lab updates, visual PC availability interface missing.")
-
 
 @client.event
 async def on_raw_reaction_add(payload):
@@ -87,7 +98,7 @@ def is_authed_user():
 
     async def predicate(ctx):
         user_ids = _get_authed_user_ids()
-        return (ctx.author.id in user_ids) or (ctx.author.id == 222556561199857664)
+        return (ctx.author.id in user_ids) or (ctx.author.id == int(config['id']['owner']))
 
     def _get_authed_user_ids():
 
@@ -220,12 +231,12 @@ async def eventpanel_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
-@client.command(name="twitterthread", pass_context=True)
+@client.command(name="twitterstream", pass_context=True)
 @is_authed_user()
-async def twitterthread(ctx):
+async def twitterstream(ctx):
 
     """
-    Force auth *IF* 420 error. Wait 15 minutes!
+    Force stream auth *IF* 420 error. Wait 15 minutes!
     :param ctx:
     :return:
     """
@@ -233,14 +244,14 @@ async def twitterthread(ctx):
     twitterfeed.force_thread_start_for_auth()
 
 
-@twitterthread.error
+@twitterstream.error
 async def faq_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
-@client.command(name='twitterstream', pass_context=True)
+@client.command(name='twitterpoll', pass_context=True)
 @is_authed_user()
-async def twitterstream(ctx):
+async def twitterpoll(ctx):
 
     """
     Start the Twitter streaming process
@@ -248,15 +259,20 @@ async def twitterstream(ctx):
     :return: None
     """
 
-    await asyncio.wait(
-        [
-            twitterfeed.twitter_poller.poll_for_data_from_stream(client),
-            twitterfeed.twitter_poller.poll_for_tweet_updates()
-        ]
-    )
+    try:
+        await asyncio.wait(
+            [
+                twitterfeed.twitter_poller.poll_for_data_from_stream(client),
+                twitterfeed.twitter_poller.poll_for_tweet_updates(),
+            ]
+        )
+    except Exception as last_resort:
+        commands_channel_name = discord.utils.get(ctx.guild.channels, name=config['channel']['bot-commands'])
+        owner = discord.utils.get(ctx.guild.channels, name=int(config['id']['owner']))
+        await commands_channel_name.send(f"{owner.mention}, all exceptions were tried against the Twitter streamer. The following was captured:\n{last_resort}\n\nIt is highly recommended to execute `!twitterstream` again.")
 
 
-@twitterstream.error
+@twitterpoll.error
 async def stream_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 

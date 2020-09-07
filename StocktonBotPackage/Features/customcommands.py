@@ -76,13 +76,13 @@ async def scrape_website(client):
         print(f"Checking for machine availability...")
         try:
             pc_statuses = await gaminglabAPI.get_pc_availability()
-        except Exception as resource_quota_exhausted:
-            print(f"Unable to scrape data! Quota exchausted?:\n{resource_quota_exhausted}")
-            await bot_channel.send(f"Exception caught scraping data! Retrying in 105 seconds. Error:\n{resource_quota_exhausted}")
+        except Exception as API_error_429_or_500:
+            print(f"Unable to scrape data!\n429 - Resource Quota Exhausted\n500 - Internal server error:\n{API_error_429_or_500}")
+            await bot_channel.send(f"Exception caught scraping data! Retrying in 105 seconds. Error:\n{API_error_429_or_500}")
             await asyncio.sleep(105)
             continue
 
-        print(f"Updating the embed with the following statuses:\n{pc_statuses}")
+        print(f"Updating PC availability with the following statuses:\n{pc_statuses}")
         await update_machine_availability_embed(client, pc_statuses)
         print(F"Trying again in 25 seconds")
         await asyncio.sleep(25)

@@ -43,7 +43,7 @@ async def display_metrics(context):
     botdeveloper_role = discord.utils.get(context.guild.roles, name=config['role-other']['botdeveloper'])
     nitrobooster_role = discord.utils.get(context.guild.roles, name=config['role-other']['nitrobooster'])
     alumni_role = discord.utils.get(context.guild.roles, name=config['role-other']['alumni'])
-    owner = discord.utils.get(context.guild.members, id=222556561199857664)
+    owner = discord.utils.get(context.guild.members, id=int(config['id']['owner']))
 
     await context.send("Getting metrics, please wait...")
     before = time.time()
@@ -76,31 +76,33 @@ async def display_metrics(context):
     rate_checks = twitterfeed.TweepyClient().get_rate_limit()
     timeline_rates = twitterfeed.TweepyClient().get_rates_timeline()
     id_rates = twitterfeed.TweepyClient().get_rates_id()
-    twitter_threaded = get_bool_symbols(twitterfeed.get_thread_status())
-    twitter_poll_status = get_bool_symbols(twitterfeed.get_poll_status())
-    twitter_online_status = get_online_symbols(twitterfeed.get_poll_status())  # Synonymous with Twitter poll status
-    twitter_error = twitterfeed.get_account_error()
+    twitter_streaming = get_bool_symbols(twitterfeed.listener.is_streaming)
+    twitter_poll_status = get_bool_symbols(twitterfeed.twitter_poller.is_polling)
+    twitter_error = twitterfeed.listener.error
+
+    if twitterfeed.listener.is_streaming and twitterfeed.twitter_poller.is_polling and twitter_error is None:
+        twitter_online_status = get_online_symbols(True)
+    else:
+        twitter_online_status = get_online_symbols(False)
 
     gsheets_rates = get_online_symbols(gsheetsAPI.validate_resource_usage())
 
     after = time.time()
     embed = discord.Embed(color=0xff2424, description=f"For more info, please message {owner.mention}, an available {botdeveloper_role.mention} or {moderator_role.mention}!")
     embed.set_author(name="Server and API metrics")
-    embed.add_field(name="# Authorized server members", value=f"`{num_authed}/{num_server_members}`", inline=False)
+    embed.add_field(name="# Authorized server members", value=f"`{num_authed}` / `{num_server_members}`", inline=False)
     embed.add_field(name="# Staff", value=f"{admin_role.mention}: `{num_admin}`\n{admini_role.mention}: `{num_admini}`\n{moderator_role.mention}: `{num_moderators}`\n{leadership_role.mention}: `{num_leadership}`\n{gamemanager_role.mention}: `{num_gamemanager}`", inline=False)
     embed.add_field(name="# Players", value=f"{apex_role.mention}: `{num_apex}`\n{csgo_role.mention}: `{num_csgo}`\n{fifa_role.mention}: `{num_fifa}`\n{fortnite_role.mention}: `{num_fortnite}`\n{hearthstone_role.mention}: `{num_hearthstone}`\n{league_role.mention}: `{num_league}`\n{overwatch_role.mention}: `{num_overwatch}`\n{rocketleague_role.mention}: `{num_rocketleague}`\n{smash_role.mention}: `{num_smash}`\n{valorant_role.mention}: `{num_valorant}`\n{minecraft_role.mention}: `{num_minecraft}`", inline=False)
     embed.add_field(name="# Other", value=f"{botdeveloper_role.mention}: `{num_botdeveloper}`\n{nitrobooster_role.mention}: `{num_nitrobooster}`\n{alumni_role.mention}: `{num_alumni}`", inline=False)
     embed.add_field(name="Twitter API rates", value=f"Rate checks: `{rate_checks}/180`\nTimeline: `{timeline_rates}/900`\nStream rates: `{id_rates}/900`", inline=False)
-    embed.add_field(name="Twitter stream", value=f"Is threaded: {twitter_threaded}\nIs polling: {twitter_poll_status}\nError: `{twitter_error}`\nStatus: `{twitter_online_status}`", inline=False)
-    embed.add_field(name="Twitter stream info", value=f"If not threaded: `!twitterthread`\nIf not polling: `!twitterstream`\nIf error 420: `!twitterstream` after __15__ minutes\nIf online & tweet missing: `!tweet`", inline=False)
+    embed.add_field(name="Twitter stream", value=f"Is streaming: {twitter_streaming}\nIs polling: {twitter_poll_status}\nError: `{twitter_error}`\nStatus: `{twitter_online_status}`", inline=False)
+    embed.add_field(name="Twitter stream info", value=f"If not streaming: `!twitterstream`\nIf not polling: `!twitterpoll`\nIf error 420: `!twitterpoll` after __15__ minutes\nIf online & tweet missing: `!tweet`", inline=False)
     embed.add_field(name="Google Sheets API rates", value=f"Read / 100 secs: `100`\nRead / day: `unlimited`", inline=False)
     embed.add_field(name="Gaming lab stream", value=f"Status: `{gsheets_rates}`", inline=False)
-    embed.add_field(name="Gaming lab info", value=f"If offline: `!scrape`", inline=False)
+    embed.add_field(name="Gaming lab info", value=f"If offline: `!scrape`\nLast resort: `Restart the bot`", inline=False)
     embed.set_footer(text=f"Metrics retrieved in {1000 * (after - before)} milliseconds.")
 
     await context.send(embed=embed)
-
-    print(F"Twitter all rate limits:\n{twitterfeed.TweepyClient().get_all_rate_limits()}")
 
 
 def get_bool_symbols(bool):

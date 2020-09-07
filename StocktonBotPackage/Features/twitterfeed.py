@@ -48,7 +48,7 @@ class StdOutListener(tweepy.StreamListener):
 
     def __init__(self):
         super().__init__()
-        self.is_threaded = False
+        self.is_streaming = False
         self.social_media_channel = None
         self.commands_channel = None
         self.static_data = None
@@ -67,12 +67,10 @@ class StdOutListener(tweepy.StreamListener):
 
     def on_error(self, status):
         """
-        This method is also overridden.
-        :param status: error that's passed in through status to stream
+        This method if: error that's passed in through status to stream
         """
-        print(f"ERROR: {status}")
+        print(f"Twitter Stream Error: {status}")
         self.error = status
-        self.is_threaded = False
 
     def thread_stream(self):
 
@@ -83,9 +81,10 @@ class StdOutListener(tweepy.StreamListener):
         with disregard to process blocking
         """
 
-        self.is_threaded = True
+        print(f"Starting Twitter stream thread...")
+        self.is_streaming = True
         stream = tweepy.Stream(client.auth, listener)  # Listener is responsible for data handling
-        stream.filter(follow=[client.user_id])
+        stream.filter(follow=[client.user_id])  # Function cuts off early here
 
 
 class TweetDataRetrieverWrapper:
@@ -366,6 +365,7 @@ class Poll:
     def __init__(self):
         self.is_polling = False
         self._poll_rate = 1  # In seconds
+        self._num_retries = 5  # If poll error
 
     async def poll_for_data_from_stream(self, client):
 
@@ -388,26 +388,44 @@ class Poll:
         commands_chan_name = gsheetsAPI.get_bot_commands_channel_name()
         listener.social_media_channel = discord.utils.get(client.get_all_channels(), name=social_chan_name)
         listener.commands_channel = discord.utils.get(client.get_all_channels(), name=commands_chan_name)
-
-        await listener.commands_channel.send("Starting Twitter feed!")
-
         print(f"Polling for stream...")
+
+        if listener.error is None:
+            await listener.commands_channel.send("Starting Twitter feed! No errors found.")
+            print(f"...poll success!")
+        else:
+            await listener.commands_channel.send(f"Starting Twitter feed failed.\nError: `{listener.error}`\nGoogle this error, or try `!twitterpoll` in `15` minutes")
+            print(F"Poll unsuccessful!")
+            self.is_polling = False  # False by default- it may be set to true and abort mid-process.
+            return
+
         self.is_polling = True
         while True:
             try:
                 await asyncio.sleep(self._poll_rate)
                 if listener.static_data and listener.dynamic_data:
-                    print(F"Trying...")
                     await embed_and_send(listener.static_data, listener.dynamic_data)
                     listener.static_data = None
                     listener.dynamic_data = None
-                elif listener.error:
-                    await listener.commands_channel.send(f"ERROR: {listener.error}\n*Unable to update Twitter feed*: __https://developer.twitter.com/en/docs/basics/response-codes__")
                     listener.error = None
+                elif listener.error:
+                    await listener.commands_channel.send(f"Twitter poll error: {listener.error}\n*Unable to update Twitter feed*. Please retry in __15__ minutes.")
+                else:
+                    print(f"No messages in stream listener. Retrying in 5 seconds. Error: {listener.error}")
 
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(5)
             except Exception as e:
+                await listener.commands_channel.send(f"Some unknown exception was caught trying to poll stream. {self._num_retries} retries remaining!\nError: `{e}`")
                 print(f"Some unknown exception caught trying to poll stream, retrying!:\n\n{e}")
+
+                if self._num_retries > 0:
+                    self._num_retries -= 1
+                    continue
+                else:
+                    self.is_polling = False
+                    owner = discord.utils.get(client.guild.members, id=int(config['id']['owner']))
+                    await listener.commands_channel.send(f"{owner.mention}, unable to start poller after 5 retries. See `!metrics` for more information")
+                    break
 
     async def poll_for_tweet_updates(self):
 
@@ -463,11 +481,9 @@ class Poll:
             await asyncio.sleep(update_rate)
             tweet = client.api.get_status(id=tweet_id, tweet_mode='extended')
             print(f"\tTweet captured...")
-            rates_timeline = client.api.rate_limit_status()['resources']['statuses']['/statuses/user_timeline']['remaining']
-            rates_id = client.api.rate_limit_status()['resources']['statuses']['/statuses/show/:id']['remaining']
+            rates_id = client.get_rates_id()
             print(f"\tRates captured...")
             favorites, retweets = tweet_data_wrapper.get_dynamic_data(tweet)
-            print(f"\tRemaining rates: {rates_id}/900\n\tFavorites retweets: {favorites} / {retweets}")
 
             embed = message.embeds[0]
             if embed is None:
@@ -563,34 +579,6 @@ thread = threading.Thread(target=listener.thread_stream, args=[])
 
 # TODO: If so, it might be better to access the instance directly
 # instead of calling a function from the module.
-
-
-def get_account_error():
-
-    return listener.error
-
-
-def get_thread_status():
-
-    return listener.is_threaded
-
-
-def get_stream_status():
-
-    """
-    :return: Authorization status
-    to this specific listener object.
-    """
-
-    if listener.error:
-        return False
-
-    return True
-
-
-def get_poll_status():
-
-    return twitter_poller.is_polling
 
 
 def force_thread_start_for_auth():

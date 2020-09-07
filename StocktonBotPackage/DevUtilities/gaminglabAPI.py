@@ -7,6 +7,7 @@ to login to labstats.com
 
 from selenium import webdriver
 from StocktonBotPackage.DevUtilities import configparser
+from selenium.common.exceptions import NoSuchElementException, SessionNotCreatedException
 import asyncio
 import os
 
@@ -23,14 +24,19 @@ def open_browser_driver():
     while True:
         try:
             options.binary_location = os.environ['GOOGLE_CHROME_BIN']  # Specifies the binary location for Heroku
-        except Exception:
-            pass  # A binary location does not need to specified if the bot is running locally
+        except KeyError:
+            print(F"(Skipping binary location. Running locally.)")  # A binary location does not need to specified if the bot is running locally
 
         options.add_argument("--headless")  # For general purposes
         options.add_argument('--disable-gpu')  # For Heroku
         options.add_argument('--no-sandbox')  # For Heroku
         options.add_argument('--disable-dev-shm-usage')  # Hotfix found on StackOverflow
-        browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
+
+        try:
+            browser = webdriver.Chrome(options=options, executable_path=os.environ['CHROME_EXE_PATH'])
+        except SessionNotCreatedException as e:
+            print(f"Unintended exception occurred. Retrying in 3 seconds.\nIf this exception is seen on more than one occasion, please investigate. Exception:\n{e}")
+            continue
 
         browser.get(config['website']['url'])
 
@@ -45,9 +51,10 @@ def open_browser_driver():
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame2']))
             browser.switch_to.frame(browser.find_element_by_id(id_=config['website-iframe-ids']['frame3']))
             break
-        except Exception as no_such_element_exception:
-            print(f"Unknown exception caught trying to locate website iframes, retrying until success (other processes will be blocked if this repeats)... \nException:\n{no_such_element_exception}")
+        except (NoSuchElementException, Exception) as e:
+            print(f"Unknown exception caught trying to locate website iframes, retrying until success (other processes will be blocked if this repeats)... \nException:\n{e}")
             browser.close()  # Retry the browser if there's an issue
+            continue
 
     print("...browser driver ready for scraping!")
     return browser
