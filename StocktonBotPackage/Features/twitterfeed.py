@@ -389,17 +389,11 @@ class Poll:
         listener.social_media_channel = discord.utils.get(client.get_all_channels(), name=social_chan_name)
         listener.commands_channel = discord.utils.get(client.get_all_channels(), name=commands_chan_name)
         print(f"Polling for stream...")
+        listener.error = None  # Assuming a user does this manually, this needs to clear
 
-        if listener.error is None:
-            await listener.commands_channel.send("Starting Twitter feed! No errors found.")
-            print(f"...poll success!")
-        else:
-            await listener.commands_channel.send(f"Starting Twitter feed failed.\nError: `{listener.error}`\nGoogle this error, or try `!twitterpoll` in `15` minutes")
-            print(F"Poll unsuccessful!")
-            self.is_polling = False  # False by default- it may be set to true and abort mid-process.
-            return
-
+        await listener.commands_channel.send(f"Starting Twitter feed.")
         self.is_polling = True
+
         while True:
             try:
                 await asyncio.sleep(self._poll_rate)
@@ -407,7 +401,6 @@ class Poll:
                     await embed_and_send(listener.static_data, listener.dynamic_data)
                     listener.static_data = None
                     listener.dynamic_data = None
-                    listener.error = None
                 elif listener.error:
                     await listener.commands_channel.send(f"Twitter poll error: {listener.error}\n*Unable to update Twitter feed*. Please retry in __15__ minutes.")
                 else:
@@ -415,7 +408,12 @@ class Poll:
 
                 await asyncio.sleep(5)
             except Exception as e:
-                await listener.commands_channel.send(f"Some unknown exception was caught trying to poll stream. {self._num_retries} retries remaining!\nError: `{e}`")
+
+                if self._num_retries == 0:
+                    await listener.commands_channel.send(f"Some unknown exception was caught trying to poll stream. {self._num_retries} retries remaining!\nError: `{e}`")
+                else:
+                    await listener.commands_channel.send(f"`{self._num_retries}` remaining...")
+
                 print(f"Some unknown exception caught trying to poll stream, retrying!:\n\n{e}")
 
                 if self._num_retries > 0:
@@ -423,6 +421,7 @@ class Poll:
                     continue
                 else:
                     self.is_polling = False
+                    listener.error = e
                     owner = discord.utils.get(client.guild.members, id=int(config['id']['owner']))
                     await listener.commands_channel.send(f"{owner.mention}, unable to start poller after 5 retries. See `!metrics` for more information")
                     break
