@@ -15,6 +15,7 @@ class Scraper:
 
     def __init__(self, scraping):
         self.is_scraping = scraping
+        self.issued_off = False
 
 
 # ------------------------+
@@ -30,11 +31,11 @@ async def force_off(client):
     bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
 
     try:
-        scraper.is_scraping = False
-        await bot_channel.send("Web scraper successfully turned off!")
+        scraper.issued_off = True
+        await bot_channel.send(f"Turning off webscraper, please wait...")
     except Exception as e:
         print(f"Unable to force off!")
-        await bot_channel.send(f"Exception caught tyring to turn off webscraper:\n\n{e}")
+        await bot_channel.send(f"Exception caught trying to turn off webscraper:\n\n{e}")
 
 
 async def scrape_website(client):
@@ -44,8 +45,6 @@ async def scrape_website(client):
     :return: only if there's an issue
     Type '!scrape' to restart the scraping process.
     """
-
-    # TODO: Pull channel names from gsheets config
 
     try:
         bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
@@ -59,17 +58,25 @@ async def scrape_website(client):
 
         print(f"USING DEFAULT GAME LAB CHANNEL! Error:\n{e}")
         bot_commands_channel_name = config['channel']['botcommands']
+
     bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
 
-    if scraper.is_scraping:
-        await bot_channel.send("Aborting - There is already one running instance of the web scraper.")
-        return
+    await bot_channel.send(f"Started web scraping.")
+    print(f"Web scraper starting...")
 
     while True:
 
+        if scraper.issued_off:
+            gaming_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
+            game_lab_channel = discord.utils.get(client.get_all_channels(), name=gaming_lab_channel_name)
+            print(f"Successfully turned off webscraper")
+            await bot_channel.send(f"Successfully turned off scraper.\n\nPlease go to {game_lab_channel.mention} and verify this action by comparing its edited timestamp.")
+            scraper.issued_off = False
+            scraper.is_scraping = False
+            return
+
         if not await validators.machine_availabilty_embed_exists(client):
             await bot_channel.send(f"Machine availability panels must first exist in the channel `#{bot_commands_channel_name}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
-            scraper.is_scraping = False
             return
 
         scraper.is_scraping = True

@@ -1,7 +1,7 @@
 import discord
 import time
 from StocktonBotPackage.DevUtilities import utils, configparser, gsheetsAPI
-from StocktonBotPackage.Features import twitterfeed
+from StocktonBotPackage.Features import twitterfeed, customcommands
 
 
 # -----------------------------------------#
@@ -86,6 +86,7 @@ async def display_metrics(context):
         twitter_online_status = get_online_symbols(False)
 
     gsheets_rates = get_online_symbols(gsheetsAPI.validate_resource_usage())
+    gaming_lab_scraping = get_bool_symbols(customcommands.scraper.is_scraping)
 
     after = time.time()
     embed = discord.Embed(color=0xff2424, description=f"For more info, please message {owner.mention}, an available {botdeveloper_role.mention} or {moderator_role.mention}!")
@@ -98,8 +99,8 @@ async def display_metrics(context):
     embed.add_field(name="Twitter stream", value=f"Is streaming: {twitter_streaming}\nIs polling: {twitter_poll_status}\nError: `{twitter_error}`\nStatus: `{twitter_online_status}`", inline=False)
     embed.add_field(name="Twitter stream info", value=f"If not streaming: `!twitterstream`\nIf not polling: `!twitterpoll`\nIf error 420: `!twitterpoll` after __15__ minutes\nIf online & tweet missing: `!tweet`", inline=False)
     embed.add_field(name="Google Sheets API rates", value=f"Read / 100 secs: `100`\nRead / day: `unlimited`", inline=False)
-    embed.add_field(name="Gaming lab stream", value=f"Status: `{gsheets_rates}`", inline=False)
-    embed.add_field(name="Gaming lab info", value=f"If offline: `!scrape`\nLast resort: `Restart the bot`", inline=False)
+    embed.add_field(name="Gaming lab stream", value=f"Is scraping: {gaming_lab_scraping}\nStatus: `{gsheets_rates}`", inline=False)
+    embed.add_field(name="Gaming lab info", value=f"If not scraping: `!scrape`\nIf not updating: `!forceoff`\nLast resort: `Restart the bot`", inline=False)
     embed.set_footer(text=f"Metrics retrieved in {1000 * (after - before)} milliseconds.")
 
     await context.send(embed=embed)

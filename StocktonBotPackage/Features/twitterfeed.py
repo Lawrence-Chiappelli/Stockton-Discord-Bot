@@ -391,7 +391,7 @@ class Poll:
         print(f"Polling for stream...")
         listener.error = None  # Assuming a user does this manually, this needs to clear
 
-        await listener.commands_channel.send(f"Starting Twitter feed.")
+        await listener.commands_channel.send(f"Started Twitter feed.")
         self.is_polling = True
 
         while True:
