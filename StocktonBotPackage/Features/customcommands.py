@@ -104,15 +104,9 @@ async def update_machine_availability_embed(guild, pc_statuses):
     """
 
     game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
+    reservations, description = gsheetsAPI.get_blue_room_reserves_and_desc()
     channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
     messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
-
-    reservations_sheet = gsheetsAPI.get_sheet_blue_room_reservations()  # TODO: Gold room support
-    reservations = reservations_sheet.col_values(2)
-    description = reservations_sheet.col_values(3)
-
-    del reservations[0:4]
-    del description[0:4]
 
     for msg in messages:  # There's only 2 of these embeds, meaning the worst time complexity is irrelevant
         embed = msg.embeds[0]
@@ -165,17 +159,10 @@ async def send_authentication_embed(context):
     return None
 
 
-async def send_event_panel(context, client):
+async def send_event_panel(context, client):  # TODO: Why did I have this client object here?
 
     await context.message.delete()
-    events_sheet = gsheetsAPI.get_sheet_events_subscriptions()
-    role_names = events_sheet.col_values(1)
-    emojis = events_sheet.col_values(2)  # These are already default, raw emojis
-    description_values = events_sheet.col_values(3)
-
-    del role_names[0:4]
-    del emojis[0:4]
-    del description_values[0:4]
+    role_names, emojis, description_values = gsheetsAPI.get_event_subscriptions()
 
     embed = discord.Embed(
         description="Interested in participating in one or more of our events? Check out below what we have to offer and you'll be pinged with the corresponding role when an event is happening!",
@@ -262,12 +249,7 @@ async def send_game_selection_panel(context):
     embed.set_author(name="🎮 Role Menu: Game Assignment")
     embed.set_thumbnail(url="https://stockton.edu/relations/brand-guide/images/osprey-head-full.png")
 
-    game_selection_sheets = gsheetsAPI.get_sheet_supported_games()
-    game_roles = game_selection_sheets.col_values(1)
-    game_emojis = game_selection_sheets.col_values(2)
-    del game_roles[0:4]
-    del game_emojis[0:4]
-
+    game_roles, game_emojis = gsheetsAPI.get_sheet_supported_games()
     for i, _ in enumerate(game_roles):
 
         role = discord.utils.get(context.guild.roles, name=game_roles[i])
@@ -296,11 +278,14 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
     """
 
     auth_emoji = config['emoji']['authed']
+    audit_emoji = config['emoji']['audit']
+    game_emojis = dict(config.items('emoji-games'))  # TODO: Why dict?
+
+    _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()  # TODO: Weigh options (rate limit usage vs readability)
     auth_channel = gsheetsAPI.get_landing_channel_name()
     gameselection_channel = gsheetsAPI.get_game_selection_channel_name()
     events_channel = gsheetsAPI.get_event_subscriptions_channel_name()
-    game_emojis = dict(config.items('emoji-games'))
-    event_emojis = gsheetsAPI.get_event_emojis()
+    audit_channel = gsheetsAPI.get_audit_logs_channel_name()
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):
         emoji = emoji.name
@@ -312,6 +297,13 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
         embed = message.embeds[0]
         await asyncio.sleep(1)
         embed.set_field_at(index=1, name=f"Users Authorized:", value=utils.get_num_members_with_role(auth_role), inline=True)
+        await message.edit(embed=embed)
+    elif str(emoji) == audit_emoji and str(channel) == audit_channel:
+        print(f"Editing")
+        message = [msg async for msg in channel.history(limit=1)].pop()
+        embed = message.embeds[0]
+        embed.description = member.mention
+        print(F"message editor")
         await message.edit(embed=embed)
     elif str(emoji) in game_emojis.values() and str(channel) == gameselection_channel:
 
@@ -325,13 +317,9 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
                 await member.remove_roles(game_role)
     elif str(emoji) in event_emojis and str(channel) == events_channel:  # Event emojis here is list and not dict
 
-        event_sheet = gsheetsAPI.get_sheet_events_subscriptions()
-        event_role_names = event_sheet.col_values(1)
-        event_emojis = event_sheet.col_values(2)
-        del event_role_names[0:4]
-        del event_emojis[0:4]
+        event_role_names, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
 
-        role_name = None
+        matching_role_name = None
         """
         For built-in emojis, we have to iterate through
         our list of wanted emojis and extract
@@ -339,13 +327,13 @@ async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
         """
         for i, event_role_name in enumerate(event_role_names):
             if emoji == event_emojis[i]:
-                role_name = event_role_name
+                matching_role_name = event_role_name
                 break
 
-        if role_name is None:
+        if matching_role_name is None:
             return None
 
-        event_role = discord.utils.get(member.guild.roles, name=role_name)
+        event_role = discord.utils.get(member.guild.roles, name=matching_role_name)
 
         if is_add and event_role not in member.roles:
             await member.add_roles(event_role)
@@ -363,23 +351,19 @@ async def send_calendar(context):
     events_channel_name = gsheetsAPI.get_event_subscriptions_channel_name()
     events_channel = discord.utils.get(context.guild.channels, name=events_channel_name)
 
-    events_calendar_sheet = gsheetsAPI.get_sheet_calendar()
-    calendar_link = events_calendar_sheet.col_values(1)
-    calendar_image_thumbnail = events_calendar_sheet.col_values(2)
-    calendar_embed_color = events_calendar_sheet.col_values(3)
-    del calendar_link[0:4]
-    del calendar_image_thumbnail[0:4]
-    del calendar_embed_color[0:4]
+    calendar_link, calendar_image_thumbnail, calendar_embed_color = gsheetsAPI.get_calendar()
 
-    link = calendar_link.pop(0)
+    link = calendar_link.pop(0)  # TODO: Why did I pop these? Experimentation?
+    thumbnail = calendar_image_thumbnail.pop(0)
+    color = calendar_embed_color.pop(0)
+
     embed = discord.Embed(title="Official Event Calendar",
                           url=link,
-                          description="", color=int(calendar_embed_color.pop(0), 16))
+                          description="", color=int(color, 16))
     embed.set_author(name="Stockton Esports",
                      url=link,
                      icon_url="https://i.pinimg.com/originals/62/d9/c0/62d9c02a5ba072fdd8ce0ad05782ea1a.jpg")
-    embed.set_thumbnail(
-        url=calendar_image_thumbnail.pop(0))
+    embed.set_thumbnail(url=thumbnail)
     embed.add_field(name="Link:",
                     value=link,
                     inline=False)
@@ -417,12 +401,7 @@ async def send_faq_panel(context):
 
     await context.message.delete()
 
-    faq_sheet = gsheetsAPI.get_sheet_faq()
-    questions = faq_sheet.col_values(1)
-    answers = faq_sheet.col_values(2)
-    del questions[0:4]
-    del answers[0:4]
-
+    questions, answers = gsheetsAPI.get_faq()
     faq_channel_name = gsheetsAPI.get_faq_channel_name()
     help_dir_channel_name = gsheetsAPI.get_help_directory_channel_name()
 

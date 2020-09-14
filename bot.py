@@ -6,6 +6,7 @@ import os
 import time
 import asyncio
 import discord
+import datetime
 
 # -----------------------------------------+
 client = commands.Bot(command_prefix='!')  #
@@ -45,6 +46,7 @@ async def on_ready():
     else:
         print(f"Not pinging for lab updates, visual PC availability interface missing.")
 
+
 @client.event
 async def on_raw_reaction_add(payload):
 
@@ -78,10 +80,50 @@ async def on_raw_reaction_remove(payload):
 async def on_message(message):
 
     if message.author.bot:
-        # TODO: Accommodate for social media feed
+        try:
+            if message.embeds[0].author.name == config['embed']['messagedeleted']:  # For auditing
+                await message.add_reaction(config['emoji']['audit'])
+        except IndexError:
+            return
         return
 
     await client.process_commands(message)
+
+
+@client.event
+async def on_raw_message_delete(payload):
+
+    guild = client.get_guild(payload.guild_id)
+    channel = discord.utils.get(guild.channels, id=payload.channel_id)
+    message = payload.cached_message
+
+    if channel.name == gsheetsAPI.get_audit_logs_channel_name():
+        return
+
+    embed = discord.Embed(title="Deleted by:", description="_react below_", color=0x2eff93)
+    embed.set_author(name="Action: Message Deleted")
+    embed.set_thumbnail(
+        url="https://lh3.googleusercontent.com/KhigkfQKR3q9U0pSO5JV4XHKaqYykeRyXkPZe5pdeDbLQe8uDqb0eJAAeVX8SUCM7s1E")
+    embed.add_field(name="Author", value=message.author, inline=False)
+    embed.add_field(name="Content", value=f"`{message.content}`", inline=False)
+    embed.add_field(name="Channel", value=channel.mention, inline=False)
+    embed.add_field(name="Deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
+
+    audit_channel = discord.utils.get(guild.channels, name=config['channel']['auditlogs'])
+    await audit_channel.send(embed=embed)
+
+
+@client.event
+async def on_member_remove(member):
+
+    """
+    :param member: the member that left the server
+    :return: a message to the welcome channel indicating their absence.
+    """
+
+    welcome_channel_name = gsheetsAPI.get_welcome_channel_name()
+    welcome_channel = discord.utils.get(member.guild.channels, name=welcome_channel_name)
+    await welcome_channel.send(f"**{member.name} has left the server.")
 
 
 async def get_emoji_from_bot(message):
@@ -97,16 +139,9 @@ async def get_emoji_from_bot(message):
 def is_authed_user():
 
     async def predicate(ctx):
-        user_ids = _get_authed_user_ids()
+
+        user_ids = gsheetsAPI.get_authed_user_ids()
         return (ctx.author.id in user_ids) or (ctx.author.id == int(config['id']['owner']))
-
-    def _get_authed_user_ids():
-
-        authed_users_sheet = gsheetsAPI.get_sheet_authed_users()
-        ids = authed_users_sheet.col_values(2)
-        del ids[0:4]  # Remove headers
-        ids = [int(i) for i in ids]  # Converts strings to ints
-        return ids
 
     return commands.check(predicate)
 

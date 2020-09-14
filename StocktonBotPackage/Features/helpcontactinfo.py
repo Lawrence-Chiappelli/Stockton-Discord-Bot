@@ -14,23 +14,14 @@ async def send_help_panel(context, client):
 
     await context.message.delete()
 
-    help_dir_sheet = gsheetsAPI.get_sheet_help_directory_contact_cards()
-
-    role_titles = help_dir_sheet.col_values(1)
-    names = help_dir_sheet.col_values(2)
-    emails = help_dir_sheet.col_values(3)
-    colors = help_dir_sheet.col_values(4)
-    user_ids = help_dir_sheet.col_values(5)
-    descriptions = help_dir_sheet.col_values(6)
-    footers = help_dir_sheet.col_values(7)
-
-    del role_titles[0:4]  # Remove the headers I've added
-    del names[0:4]
-    del emails[0:4]
-    del colors[0:4]
-    del user_ids[0:4]
-    del descriptions[0:4]
-    del footers[0:4]
+    role_titles, \
+        names, \
+        emails, \
+        colors, \
+        user_ids, \
+        descriptions, \
+        footers \
+        = gsheetsAPI.get_sheet_help_directory_contact_cards()
 
     for i, role_title in enumerate(role_titles):
         member = discord.utils.get(context.message.guild.members, id=int(user_ids[i]))
@@ -83,25 +74,15 @@ async def send_gm_panel(client, context):
     await context.message.delete()
 
     current_message_channel_name = context.channel.name
-    gm_sheet = gsheetsAPI.get_sheet_gms()
-
-    role_titles = gm_sheet.col_values(1)
-    names = gm_sheet.col_values(2)
-    emails = gm_sheet.col_values(3)
-    colors = gm_sheet.col_values(4)
-    user_ids = gm_sheet.col_values(5)
-    descriptions = gm_sheet.col_values(6)
-    channel_names = gm_sheet.col_values(7)
-    icon_links = gm_sheet.col_values(8)
-
-    del role_titles[0:4]
-    del names[0:4]
-    del emails[0:4]
-    del colors[0:4]
-    del user_ids[0:4]
-    del descriptions[0:4]
-    del channel_names[0:4]
-    del icon_links[0:4]
+    role_titles, \
+        names, \
+        emails, \
+        colors, \
+        user_ids, \
+        descriptions, \
+        channel_names, \
+        icon_links \
+        = gsheetsAPI.get_gm_info()
 
     for i, channel_name in enumerate(channel_names):
 
@@ -110,11 +91,8 @@ async def send_gm_panel(client, context):
                 emoji = discord.utils.get(context.guild.emojis, name=str(channel_name).capitalize())
 
                 role_gm = discord.utils.get(context.guild.roles, name="Game Manager")  # TODO: Allow for config
-                print(f"Channel name: {channel_name}")
                 role_game_name = str(channel_name).replace("-", " ").title().replace("Of", "of").replace("Fifa", "FIFA").replace("Csgo", "CS:GO")  #TODO: Better setup
-                print(f'Role game name: {role_game_name}')
                 role_game = discord.utils.get(context.guild.roles, name=role_game_name)
-                print(f'Role game: {role_game}')
 
                 if names[i] == "n/a" or names[i] == "" or names[i] is None:
 
