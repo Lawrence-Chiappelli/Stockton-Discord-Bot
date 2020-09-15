@@ -126,7 +126,7 @@ async def on_member_update(before, after):
             emoji = "<:boost:755245792343883836>"
 
         general = discord.utils.get(client.get_all_channels(), name="general")
-        await general.send(f"{emoji} {after.mention} just boosted the server!")
+        await general.send(f"{str(emoji)} {after.mention} just boosted the server!")
 
 
 @client.event
