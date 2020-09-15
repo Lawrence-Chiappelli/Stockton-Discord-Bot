@@ -117,8 +117,16 @@ async def on_raw_message_delete(payload):
 async def on_member_update(before, after):
 
     if before.premium_since is None and after.premium_since is not None:
+
+        try:
+            emoji = discord.utils.get(after.guild.emojis, name='boost')
+            if emoji is None:
+                emoji = "<:boost:755245792343883836>"
+        except Exception:
+            emoji = "<:boost:755245792343883836>"
+
         general = discord.utils.get(client.get_all_channels(), name="general")
-        await general.send(f"<:boost:755245792343883836> {after.mention} just boosted the server!")
+        await general.send(f"{emoji} {after.mention} just boosted the server!")
 
 
 @client.event
