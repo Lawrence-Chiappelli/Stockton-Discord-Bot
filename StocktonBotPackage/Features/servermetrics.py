@@ -1,8 +1,7 @@
 import discord
 import time
 from StocktonBotPackage.DevUtilities import utils, configparser, gsheetsAPI
-from StocktonBotPackage.Features import twitterfeed, customcommands
-
+from StocktonBotPackage.Features import twitterfeed, gamelabscraper
 
 # -----------------------------------------#
 config = configparser.get_parsed_config()  #
@@ -86,7 +85,7 @@ async def display_metrics(context):
         twitter_online_status = get_online_symbols(False)
 
     gsheets_rates = get_online_symbols(gsheetsAPI.validate_resource_usage())
-    gaming_lab_scraping = get_bool_symbols(customcommands.scraper.is_scraping)
+    gaming_lab_scraping = get_bool_symbols(gamelabscraper.scraper.is_scraping)
 
     after = time.time()
     embed = discord.Embed(color=0xff2424, description=f"For more info, please message {owner.mention}, an available {botdeveloper_role.mention} or {moderator_role.mention}!")

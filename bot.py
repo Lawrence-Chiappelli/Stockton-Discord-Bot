@@ -1,6 +1,5 @@
-from StocktonBotPackage.Features import customcommands, helpcontactinfo, twitterfeed, servermetrics
+from StocktonBotPackage.Features import embeddirectory, helpdirectory, twitterfeed, servermetrics, reactiondirectory, gamelabscraper
 from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI
-from discord.ext.commands import has_permissions, CheckFailure
 from discord.ext import commands
 import os
 import time
@@ -42,7 +41,7 @@ async def on_ready():
 
     if await validators.machine_availabilty_embed_exists(client):
         print(f"Checks passed! Turning on game lab availability...")
-        await asyncio.wait([customcommands.scrape_website(client)])
+        await asyncio.wait([gamelabscraper.scrape_website(client)])
     else:
         print(f"Not pinging for lab updates, visual PC availability interface missing.")
 
@@ -58,7 +57,7 @@ async def on_raw_reaction_add(payload):
         return
 
     if validators.is_bot_reaction_function(emoji, channel):
-        await customcommands.execute_bot_reaction_directory(emoji, channel, member)
+        await reactiondirectory.find_reaction_function(emoji, channel, member)
 
 
 @client.event
@@ -73,16 +72,31 @@ async def on_raw_reaction_remove(payload):
         return
 
     if validators.is_bot_reaction_function(emoji, channel):
-        await customcommands.execute_bot_reaction_directory(emoji, channel, member, False)
+        print(F"Is bot reaction function")
+        await reactiondirectory.find_reaction_function(emoji, channel, member)
+    else:
+        print(f"Is not bot reaction function!")
 
 
 @client.event
 async def on_message(message):
 
+    """
+    :param message: Message from client
+    :return: None
+
+    Only serves one purpose- no need to abstract
+    this away into a different function or module.
+
+    Handles adding 2 reactions for audit messages.
+    Also processes commands.
+    """
+
     if message.author.bot:
         try:
             if message.embeds[0].author.name == config['embed']['messagedeleted']:  # For auditing
                 await message.add_reaction(config['emoji']['audit'])
+                await message.add_reaction(config['emoji']['author'])
         except IndexError:
             return
         return
@@ -93,6 +107,13 @@ async def on_message(message):
 @client.event
 async def on_raw_message_delete(payload):
 
+    """
+    :param payload: Payload of message deleted
+    :return: None
+
+
+    """
+
     guild = client.get_guild(payload.guild_id)
     channel = discord.utils.get(guild.channels, id=payload.channel_id)
     message = payload.cached_message
@@ -100,14 +121,15 @@ async def on_raw_message_delete(payload):
     if channel.name == gsheetsAPI.get_audit_logs_channel_name():
         return
 
-    embed = discord.Embed(title="Deleted by:", description="_react below_", color=0x2eff93)
-    embed.set_author(name="Action: Message Deleted")
+    embed = discord.Embed(title="", description="*Claim responsibility below*", color=0x2eff93)
+    embed.set_author(name=config[''])
     embed.set_thumbnail(
         url="https://lh3.googleusercontent.com/KhigkfQKR3q9U0pSO5JV4XHKaqYykeRyXkPZe5pdeDbLQe8uDqb0eJAAeVX8SUCM7s1E")
     embed.add_field(name="Author", value=message.author, inline=False)
     embed.add_field(name="Content", value=f"`{message.content}`", inline=False)
     embed.add_field(name="Channel", value=channel.mention, inline=False)
     embed.add_field(name="Deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
+    embed.set_footer(text=f"{config['emoji']['audit']} You | {config['emoji']['author']} Author")
 
     audit_channel = discord.utils.get(guild.channels, name=config['channel']['auditlogs'])
     await audit_channel.send(embed=embed)
@@ -139,7 +161,7 @@ async def on_member_remove(member):
 
     welcome_channel_name = gsheetsAPI.get_welcome_channel_name()
     welcome_channel = discord.utils.get(member.guild.channels, name=welcome_channel_name)
-    await welcome_channel.send(f"**{member.name} has left the server.")
+    await welcome_channel.send(f"**{member.name}** has left the server.")
 
 
 async def get_emoji_from_bot(message):
@@ -177,7 +199,7 @@ async def auth(ctx):
     :return: None
     """
 
-    await customcommands.send_authentication_embed(ctx)
+    await embeddirectory.send_authentication_embed(ctx)
 
 
 @auth.error
@@ -194,7 +216,7 @@ async def gamelab(ctx):
     :param ctx: context
     :return: None
     """
-    await customcommands.send_machine_availability_embed(ctx)
+    await embeddirectory.send_machine_availability_embed(ctx)
 
 
 @gamelab.error
@@ -218,7 +240,7 @@ async def scrape(ctx):
 
     await asyncio.wait(
         [
-            customcommands.scrape_website(client)
+            gamelabscraper.scrape_website(client)
         ]
     )
 
@@ -238,7 +260,7 @@ async def gameselection(ctx):
     :return: None
     """
 
-    await customcommands.send_game_selection_panel(ctx)
+    await embeddirectory.send_game_selection_embed(ctx)
 
 
 @gameselection.error
@@ -256,7 +278,7 @@ async def helppanel(ctx):
     :return: None
     """
 
-    await helpcontactinfo.send_help_panel(ctx, client)
+    await helpdirectory.send_help_panel(ctx, client)
 
 
 @helppanel.error
@@ -274,7 +296,7 @@ async def eventpanel(ctx):
     :return: None
     """
 
-    await customcommands.send_event_panel(ctx, client)
+    await embeddirectory.send_event_embed(ctx, client)
 
 
 @eventpanel.error
@@ -374,7 +396,7 @@ async def gmpanel(ctx):
     :return: None
     """
 
-    await helpcontactinfo.send_gm_panel(client, ctx)
+    await helpdirectory.send_gm_panel(client, ctx)
 
 
 @gmpanel.error
@@ -392,7 +414,7 @@ async def forceoff(ctx):
     :return: None
     """
 
-    await customcommands.force_off(client)
+    await gamelabscraper.force_off(client)
 
 
 @forceoff.error
@@ -410,7 +432,7 @@ async def calendar(ctx):
     :return:
     """
 
-    await customcommands.send_calendar(ctx)
+    await embeddirectory.send_calendar_embed(ctx)
 
 
 @calendar.error
@@ -428,7 +450,7 @@ async def boosters(ctx):
     :return:
     """
 
-    await customcommands.send_boosters_panel(ctx)
+    await embeddirectory.send_boosters_embed(ctx)
 
 
 @boosters.error
@@ -446,7 +468,7 @@ async def faq(ctx):
     :return:
     """
 
-    await customcommands.send_faq_panel(ctx)
+    await embeddirectory.send_faq_embed(ctx)
 
 
 @faq.error

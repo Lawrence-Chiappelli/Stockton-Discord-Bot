@@ -1,142 +1,12 @@
 # Abstract the command content away from bot.py and keep it clean.
 
-from StocktonBotPackage.DevUtilities import configparser, validators, gaminglabAPI, gsheetsAPI, utils
+from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI, utils
 from datetime import datetime
 import discord
-import asyncio
-import re
 
 # -----------------------------------------+
 config = configparser.get_parsed_config()  #
 # -----------------------------------------+
-
-
-class Scraper:
-
-    def __init__(self, scraping):
-        self.is_scraping = scraping
-        self.issued_off = False
-
-
-# ------------------------+
-scraper = Scraper(False)  #
-# ------------------------+
-# Will help prevent multiple instances of scrapers.
-# Only one should be allowed at any given time.
-
-
-async def force_off(client):
-
-    bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-    bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
-
-    try:
-        scraper.issued_off = True
-        await bot_channel.send(f"Turning off webscraper, please wait...")
-    except Exception as e:
-        print(f"Unable to force off!")
-        await bot_channel.send(f"Exception caught trying to turn off webscraper:\n\n{e}")
-
-
-async def scrape_website(client):
-
-    """
-    :param client: client bot is connected to
-    :return: only if there's an issue
-    Type '!scrape' to restart the scraping process.
-    """
-
-    try:
-        bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-    except (NameError, Exception) as e:
-
-        """
-        Generally speaking, I'd like to use the channel name from
-        Google sheets, but in the case it's down, it's critical
-        that we look for a default name.
-        """
-
-        print(f"USING DEFAULT GAME LAB CHANNEL! Error:\n{e}")
-        bot_commands_channel_name = config['channel']['botcommands']
-
-    bot_channel = discord.utils.get(client.get_all_channels(), name=bot_commands_channel_name)
-
-    await bot_channel.send(f"Started web scraping.")
-    print(f"Web scraper starting...")
-
-    while True:
-
-        if scraper.issued_off:
-            gaming_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
-            game_lab_channel = discord.utils.get(client.get_all_channels(), name=gaming_lab_channel_name)
-            print(f"Successfully turned off webscraper")
-            await bot_channel.send(f"Successfully turned off scraper.\n\nPlease go to {game_lab_channel.mention} and verify this action by comparing its edited timestamp.")
-            scraper.issued_off = False
-            scraper.is_scraping = False
-            return
-
-        if not await validators.machine_availabilty_embed_exists(client):
-            await bot_channel.send(f"Machine availability panels must first exist in the channel `#{bot_commands_channel_name}`! You can add these panels by entering `!gamelab` inside the channel, then start auto-updating PC availability with `!scrape`.")
-            return
-
-        scraper.is_scraping = True
-        print(f"Checking for machine availability...")
-        try:
-            pc_statuses = await gaminglabAPI.get_pc_availability()
-        except Exception as API_error_429_or_500:
-            print(f"Unable to scrape data!\n429 - Resource Quota Exhausted\n500 - Internal server error:\n{API_error_429_or_500}")
-            await bot_channel.send(f"Exception caught scraping data! Retrying in 105 seconds. Error:\n{API_error_429_or_500}")
-            await asyncio.sleep(105)
-            continue
-
-        print(f"Updating PC availability with the following statuses:\n{pc_statuses}")
-        await update_machine_availability_embed(client, pc_statuses)
-        print(F"Trying again in 25 seconds")
-        await asyncio.sleep(25)
-
-
-async def update_machine_availability_embed(guild, pc_statuses):
-
-    """
-    :param guild: A guild object, responsible for outputting updates
-    :param pc_statuses: A list, grabbed from gaminglabAPI.get_pc_availability()
-    :return:
-    """
-
-    game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
-    reservations, description = gsheetsAPI.get_blue_room_reserves_and_desc()
-    channel = discord.utils.get(guild.get_all_channels(), name=game_lab_channel_name)
-    messages = [msg async for msg in channel.history(limit=int(config['lab']['num_rooms']))]
-
-    for msg in messages:  # There's only 2 of these embeds, meaning the worst time complexity is irrelevant
-        embed = msg.embeds[0]
-        for i, status in enumerate(pc_statuses.values()):
-
-            if status.pop() == "available":
-                value = config['lab-icons']['available']
-            else:
-                value = config['lab-icons']['inuse']
-
-            if reservations[i] == "TRUE":
-                value += " " + config['lab-icons']['reserved']
-                value = value[::-1]  # Reverse the string, so that reserved comes first
-
-            embed.set_field_at(index=i, name=f"{i+1} 🖥️", value=value, inline=True)
-
-        if embed.title == config['lab']['blueroomnumber']:
-            room = config['lab']['blueroom']
-        elif embed.title == config['lab']['goldroomnumber']:
-            room = config['lab']['goldroom']
-        else:
-            room = "Room 0"
-
-        if description:
-            description = room + "\n\n`" + description[0] + "`"
-        else:
-            description = room
-
-        embed.description = description
-        await msg.edit(embed=embed)
 
 
 async def send_authentication_embed(context):
@@ -159,7 +29,7 @@ async def send_authentication_embed(context):
     return None
 
 
-async def send_event_panel(context, client):  # TODO: Why did I have this client object here?
+async def send_event_embed(context, client):  # TODO: Why did I have this client object here?
 
     await context.message.delete()
     role_names, emojis, description_values = gsheetsAPI.get_event_subscriptions()
@@ -238,7 +108,7 @@ async def send_machine_availability_embed(context):
     return None
 
 
-async def send_game_selection_panel(context):
+async def send_game_selection_embed(context):
 
     await context.message.delete()
 
@@ -268,83 +138,7 @@ async def send_game_selection_panel(context):
         await last_message.add_reaction(emoji)
 
 
-async def execute_bot_reaction_directory(emoji, channel, member, is_add=True):
-
-    """
-    :param emoji: the emoji being reacted
-    :param channel: the channel with reaction
-    :param member: the user to perform functionality to, if applicable
-    :return: nothing
-    """
-
-    auth_emoji = config['emoji']['authed']
-    audit_emoji = config['emoji']['audit']
-    game_emojis = dict(config.items('emoji-games'))  # TODO: Why dict?
-
-    _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()  # TODO: Weigh options (rate limit usage vs readability)
-    auth_channel = gsheetsAPI.get_landing_channel_name()
-    gameselection_channel = gsheetsAPI.get_game_selection_channel_name()
-    events_channel = gsheetsAPI.get_event_subscriptions_channel_name()
-    audit_channel = gsheetsAPI.get_audit_logs_channel_name()
-
-    if isinstance(emoji, discord.partial_emoji.PartialEmoji):
-        emoji = emoji.name
-
-    if str(emoji) == auth_emoji and str(channel) == auth_channel:
-        auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
-        await member.add_roles(auth_role)
-        message = [msg async for msg in channel.history(limit=1)].pop()
-        embed = message.embeds[0]
-        await asyncio.sleep(1)
-        embed.set_field_at(index=1, name=f"Users Authorized:", value=utils.get_num_members_with_role(auth_role), inline=True)
-        await message.edit(embed=embed)
-    elif str(emoji) == audit_emoji and str(channel) == audit_channel:
-        print(f"Editing")
-        message = [msg async for msg in channel.history(limit=1)].pop()
-        embed = message.embeds[0]
-        embed.description = member.mention
-        print(F"message editor")
-        await message.edit(embed=embed)
-    elif str(emoji) in game_emojis.values() and str(channel) == gameselection_channel:
-
-        converted_name = utils.convert_custom_emoji_name_to_role_name(str(emoji))
-        game_role = discord.utils.get(member.guild.roles, name=converted_name)
-
-        if is_add and game_role not in member.roles:
-            await member.add_roles(game_role)
-        else:
-            if game_role in member.roles:
-                await member.remove_roles(game_role)
-    elif str(emoji) in event_emojis and str(channel) == events_channel:  # Event emojis here is list and not dict
-
-        event_role_names, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
-
-        matching_role_name = None
-        """
-        For built-in emojis, we have to iterate through
-        our list of wanted emojis and extract
-        the corresponding role name
-        """
-        for i, event_role_name in enumerate(event_role_names):
-            if emoji == event_emojis[i]:
-                matching_role_name = event_role_name
-                break
-
-        if matching_role_name is None:
-            return None
-
-        event_role = discord.utils.get(member.guild.roles, name=matching_role_name)
-
-        if is_add and event_role not in member.roles:
-            await member.add_roles(event_role)
-        else:
-            if event_role in member.roles:
-                await member.remove_roles(event_role)
-
-    return None
-
-
-async def send_calendar(context):
+async def send_calendar_embed(context):
 
     await context.message.delete()
 
@@ -372,7 +166,7 @@ async def send_calendar(context):
     await context.send(embed=embed)
 
 
-async def send_boosters_panel(context):
+async def send_boosters_embed(context):
 
     boosters = context.guild.premium_subscribers
     today = datetime.today()
@@ -397,7 +191,7 @@ async def send_boosters_panel(context):
     await context.send(embed=embed)
 
 
-async def send_faq_panel(context):
+async def send_faq_embed(context):
 
     await context.message.delete()
 

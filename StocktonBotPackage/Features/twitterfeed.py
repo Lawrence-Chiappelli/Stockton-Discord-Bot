@@ -528,10 +528,6 @@ async def embed_and_send(static_data, dynamic_data):
 
 async def populate_channel_with_tweets(context):
 
-    """
-    :param debug_channel: the channel typed in to debug messages
-    """
-
     bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
     debug_channel = discord.utils.get(context.message.guild.channels, name=bot_commands_channel_name)
 

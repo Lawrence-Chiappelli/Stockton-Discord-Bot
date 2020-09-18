@@ -1,6 +1,5 @@
 from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI
 import discord
-import os
 
 """
 This module is an attempt to abtract 
