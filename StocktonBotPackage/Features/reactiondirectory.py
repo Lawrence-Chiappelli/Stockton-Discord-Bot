@@ -23,10 +23,10 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # Convert the emoji, if custom
         emoji = emoji.name
 
-    if _is_member_authenticating(member, emoji, channel):
+    if _is_member_authenticating(emoji, channel):
         await _authenticate_member(member, channel)
 
-    elif _is_moderator_auditing(member, emoji, channel):  # TODO: Will not work for messages deleted in quick succession
+    elif _is_moderator_auditing(emoji, channel):  # TODO: Will not work for messages deleted in quick succession
         await _audit_member(member, channel)
 
     elif _is_assigning_game_role(emoji, channel):
@@ -36,14 +36,14 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
         await _assign_event_role(member, emoji, is_add)
 
     else:
-        print(F"No function found!")
+        print(F"No function found! ({member.name} reacted in channel {channel.name})")
 
     return None
 
 
 async def _authenticate_member(member, channel):
 
-    message, embed = _get_msg_and_embed(channel)
+    message, embed = await _get_msg_and_embed(channel)
     auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
     await member.add_roles(auth_role)
 
@@ -54,7 +54,7 @@ async def _authenticate_member(member, channel):
 
 async def _audit_member(member, channel):
 
-    message, embed = _get_msg_and_embed(channel)
+    message, embed = await _get_msg_and_embed(channel)
     embed.description = member.mention   # TODO: Get field value index 0
     await message.edit(embed=embed)
 
@@ -104,21 +104,21 @@ async def _get_msg_and_embed(channel):
         return message, embed
 
 
-def _is_member_authenticating(member, emoji, channel):
+def _is_member_authenticating(emoji, channel):
 
     auth_emoji = config['emoji']['authed']
-    auth_channel = discord.utils.get(member.guild.channels, name=gsheetsAPI.get_landing_channel_name())
+    auth_channel = gsheetsAPI.get_landing_channel_name()
 
     if str(emoji) == auth_emoji and str(channel) == auth_channel:
         return True
     return False
 
 
-def _is_moderator_auditing(member, emoji, channel):
+def _is_moderator_auditing(emoji, channel):
 
     audit_emoji = config['emoji']['audit']
     author_emoji = config['emoji']['author']
-    audit_channel = discord.utils.get(member.guild.channels, name=gsheetsAPI.get_audit_logs_channel_name())
+    audit_channel = gsheetsAPI.get_audit_logs_channel_name()
 
     if (str(emoji) == audit_emoji or str(emoji) == author_emoji) and str(channel) == audit_channel:
         return True
