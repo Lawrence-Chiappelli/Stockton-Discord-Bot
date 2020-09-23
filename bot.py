@@ -1,5 +1,5 @@
 from StocktonBotPackage.Features import embeddirectory, helpdirectory, twitterfeed, servermetrics, reactiondirectory, gamelabscraper
-from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI
+from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI, herokuAPI
 from discord.ext import commands
 import os
 import time
@@ -12,6 +12,7 @@ client = commands.Bot(command_prefix='!')  #
 # -----------------------------------------+
 config = configparser.get_parsed_config()  #
 # -----------------------------------------+
+
 
 @client.event
 async def on_connect():
@@ -122,7 +123,7 @@ async def on_raw_message_delete(payload):
         return
 
     embed = discord.Embed(title="", description="*Claim responsibility below*", color=0x2eff93)
-    embed.set_author(name=config[''])
+    embed.set_author(name="Message deleted by")
     embed.set_thumbnail(
         url="https://lh3.googleusercontent.com/KhigkfQKR3q9U0pSO5JV4XHKaqYykeRyXkPZe5pdeDbLQe8uDqb0eJAAeVX8SUCM7s1E")
     embed.add_field(name="Author", value=message.author, inline=False)
@@ -492,5 +493,17 @@ async def metrics(ctx):
 @metrics.error
 async def metrics_error(ctx, error):
     print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+
+
+@client.command(name='restart', pass_context=True)
+@is_authed_user()
+async def restart(ctx):
+    """
+    Restart the bot.
+    :return: None
+    """
+
+    await herokuAPI.Heroku().restart_app(ctx)
+
 
 client.run(os.environ['TOKEN'])
