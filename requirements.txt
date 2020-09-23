@@ -1,6 +1,7 @@
 discord-py==1.3.4
 selenium==3.141.0
 tweepy==3.9.0
+heroku3==4.2.1
 
 # Google Sheets API packages:
 google-auth==1.19.2
