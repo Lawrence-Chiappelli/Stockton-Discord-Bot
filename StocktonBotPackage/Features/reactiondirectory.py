@@ -26,8 +26,8 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
     if _is_member_authenticating(emoji, channel):
         await _authenticate_member(member, channel)
 
-    elif _is_moderator_auditing(emoji, channel):  # TODO: Will not work for messages deleted in quick succession
-        await _audit_member(member, channel)
+    elif _is_moderator_auditing(channel, emoji):  # TODO: Will not work for messages deleted in quick succession
+        await _audit_member(channel, emoji, member)
 
     elif _is_assigning_game_role(emoji, channel):
         await _assign_game_role(member, emoji, is_add)
@@ -41,6 +41,28 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
     return None
 
 
+async def debug_reaction(emoji, channel, member):
+
+    """
+    :param emoji: The emoji the user reacted with
+    :param channel: The channel the user reacted inside of
+    :param member: The member that did the reactiobn
+    :return: None
+
+    Ideally, this should only execute if the user
+    is reacting under personally designated environment
+    (channel compared to emoji) matches.
+
+    TODO: Maybe this belongs in utils.py?
+    """
+
+    bot_channel_name = gsheetsAPI.get_bot_commands_channel_name()
+    bot_channel = discord.utils.get(member.guild.channels, name=bot_channel_name)
+    owner = utils.get_codebase_owner_member(member.guild)
+
+    await bot_channel.send(f"{owner.mention}, member `{member}` reacted to {emoji} in {channel.mention}")
+
+
 async def _authenticate_member(member, channel):
 
     message, embed = await _get_msg_and_embed(channel)
@@ -52,10 +74,27 @@ async def _authenticate_member(member, channel):
     await message.edit(embed=embed)
 
 
-async def _audit_member(member, channel):
+async def _audit_member(channel, emoji, member):
+
+    """
+    :param channel: The channel the user reacted in
+    :param emoji: The emoji the user reacted with
+    :param member: The member doing the reacting
+    :return: None
+
+    Simply edits in the name of the user
+    who deleted the message- that being
+    the person who reacted, or the
+    author being specified in the embed
+    """
 
     message, embed = await _get_msg_and_embed(channel)
-    embed.description = member.mention   # TODO: Get field value index 0
+
+    if emoji == config['emoji']['audit']:
+        embed.description = f'`{member}`'
+    else:
+        embed.description = "`Self deleted by author`"
+
     await message.edit(embed=embed)
 
 
@@ -114,7 +153,7 @@ def _is_member_authenticating(emoji, channel):
     return False
 
 
-def _is_moderator_auditing(emoji, channel):
+def _is_moderator_auditing(channel, emoji):
 
     audit_emoji = config['emoji']['audit']
     author_emoji = config['emoji']['author']

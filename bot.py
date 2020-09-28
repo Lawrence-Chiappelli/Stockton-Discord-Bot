@@ -1,5 +1,5 @@
 from StocktonBotPackage.Features import embeddirectory, helpdirectory, twitterfeed, servermetrics, reactiondirectory, gamelabscraper
-from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI, herokuAPI
+from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI, herokuAPI, utils
 from discord.ext import commands
 import os
 import time
@@ -58,6 +58,7 @@ async def on_raw_reaction_add(payload):
         return
 
     if validators.is_bot_reaction_function(emoji, channel):
+        await reactiondirectory.debug_reaction(emoji, channel, member)
         await reactiondirectory.find_reaction_function(emoji, channel, member)
 
 
@@ -95,7 +96,7 @@ async def on_message(message):
 
     if message.author.bot:
         try:
-            if message.embeds[0].author.name == config['embed']['messagedeleted']:  # For auditing
+            if message.embeds[0].author.name == config['embed']['messagedeleted']:
                 await message.add_reaction(config['emoji']['audit'])
                 await message.add_reaction(config['emoji']['author'])
         except IndexError:
@@ -123,14 +124,14 @@ async def on_raw_message_delete(payload):
         return
 
     embed = discord.Embed(title="", description="*Claim responsibility below*", color=0x2eff93)
-    embed.set_author(name="Message deleted by")
+    embed.set_author(name=config['embed']['messagedeleted'])
     embed.set_thumbnail(
         url="https://lh3.googleusercontent.com/KhigkfQKR3q9U0pSO5JV4XHKaqYykeRyXkPZe5pdeDbLQe8uDqb0eJAAeVX8SUCM7s1E")
     embed.add_field(name="Author", value=message.author, inline=False)
     embed.add_field(name="Content", value=f"`{message.content}`", inline=False)
     embed.add_field(name="Channel", value=channel.mention, inline=False)
-    embed.add_field(name="Deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
-    embed.set_footer(text=f"{config['emoji']['audit']} You | {config['emoji']['author']} Author")
+    embed.add_field(name="Time deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
+    embed.set_footer(text=f"`Deleted by:` {config['emoji']['audit']} You | {config['emoji']['author']} Author")
 
     audit_channel = discord.utils.get(guild.channels, name=config['channel']['auditlogs'])
     await audit_channel.send(embed=embed)
@@ -342,7 +343,7 @@ async def twitterpoll(ctx):
         )
     except Exception as last_resort:
         commands_channel_name = discord.utils.get(ctx.guild.channels, name=config['channel']['bot-commands'])
-        owner = discord.utils.get(ctx.guild.channels, name=int(config['id']['owner']))
+        owner = utils.get_codebase_owner_member(ctx.guild)
         await commands_channel_name.send(f"{owner.mention}, all exceptions were tried against the Twitter streamer. The following was captured:\n{last_resort}\n\nIt is highly recommended to execute `!twitterstream` again.")
 
 

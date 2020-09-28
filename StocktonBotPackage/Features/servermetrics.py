@@ -25,7 +25,7 @@ async def display_metrics(context):
     # --------------------#
 
     # Title
-    owner = discord.utils.get(context.guild.members, id=int(config['id']['owner']))
+    owner = utils.get_codebase_owner_member(context.guild)
     bot_dev_role = discord.utils.get(context.guild.roles, name=config['role-other']['botdeveloper'])
     moderator_role = discord.utils.get(context.guild.roles, name=config['role']['moderator'])
     authed_role = discord.utils.get(context.guild.roles, name=config['role']['authed'])

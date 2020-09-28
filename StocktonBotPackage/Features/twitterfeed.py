@@ -1,4 +1,4 @@
-from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI
+from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI, utils
 from collections import OrderedDict
 import discord
 import tweepy
@@ -424,7 +424,7 @@ class Poll:
                 else:
                     self.is_polling = False
                     listener.error = e
-                    owner = discord.utils.get(client.guild.members, id=int(config['id']['owner']))
+                    owner = utils.get_codebase_owner_member(client.guild)
                     await listener.commands_channel.send(f"{owner.mention}, unable to start poller after 5 retries. See `!metrics` for more information")
                     break
 

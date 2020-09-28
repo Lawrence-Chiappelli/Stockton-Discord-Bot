@@ -1,4 +1,8 @@
+from StocktonBotPackage.DevUtilities import configparser
+import discord
 import re
+
+config = configparser.get_parsed_config()
 
 
 def get_num_members_with_role(role):
@@ -9,6 +13,22 @@ def get_num_members_with_role(role):
             num_members_with_role += 1
 
     return num_members_with_role
+
+
+def get_codebase_owner_member(guild):
+
+    """
+    :param guild: The guild to search in
+    :return: The codebase owner (will return
+    helpful information if something goes wrong)
+    """
+
+    try:
+        owner = discord.utils.get(guild.members, id=int(config['id']['owner']))
+    except Exception as e:
+        owner = f"`No codebase owner found: {e}`\n"
+
+    return owner
 
 
 def convert_custom_emoji_name_to_role_name(emoji):
