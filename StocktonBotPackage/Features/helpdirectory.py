@@ -1,4 +1,4 @@
-from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI
+from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI, utils
 import discord
 
 """
@@ -97,8 +97,7 @@ async def send_gm_panel(client, context):
 
                     print(f"Help wanted. Found Names[i] to be: {names[i]}")
 
-                    help_directory_name = gsheetsAPI.get_help_directory_channel_name()
-                    help_directory_channel = discord.utils.get(context.guild.channels, name=help_directory_name)
+                    help_directory_channel = utils.get_help_directory_channel(context.guild)
 
                     names[i] = "Help wanted!"
                     emails[i] = "N/A"

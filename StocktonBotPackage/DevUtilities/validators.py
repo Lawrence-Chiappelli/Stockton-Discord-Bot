@@ -21,7 +21,7 @@ def is_bot_reaction_function(emoji, channel):
     bot_emojis = dict(config.items('emoji'))
     game_emojis = dict(config.items('emoji-games'))
     _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
-    bot_channels = gsheetsAPI.get_sheet_channel_names().col_values(2)
+    all_environment_channels = gsheetsAPI.SheetChannels()._get_all_channel_names()
 
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # If custom emoji, the name needs to be grabbed
         emoji = str(emoji.name)
@@ -31,7 +31,7 @@ def is_bot_reaction_function(emoji, channel):
     if not isinstance(channel, str):
         channel = str(channel)
 
-    if channel in bot_channels and (emoji in bot_emojis.values() or emoji in game_emojis.values() or emoji in str(event_emojis)):
+    if channel in all_environment_channels and (emoji in bot_emojis.values() or emoji in game_emojis.values() or emoji in str(event_emojis)):
         return True
 
     return False
@@ -40,7 +40,7 @@ def is_bot_reaction_function(emoji, channel):
 async def machine_availabilty_embed_exists(client):
 
     try:
-        game_lab_channel_name = gsheetsAPI.get_game_lab_channel_name()
+        game_lab_channel_name = gsheetsAPI.SheetChannels().get_game_lab_channel_name()
     except (NameError, Exception) as e:
 
         """
@@ -51,6 +51,7 @@ async def machine_availabilty_embed_exists(client):
 
         print(f"USING DEFAULT GAME LAB CHANNEL! Error:\n{e}")
         game_lab_channel_name = config['channel']['gamelabavailability']
+
     channel = discord.utils.get(client.get_all_channels(), name=game_lab_channel_name)
 
     try:

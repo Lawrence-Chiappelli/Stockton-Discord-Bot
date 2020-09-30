@@ -11,7 +11,7 @@ config = configparser.get_parsed_config()  #
 async def display_metrics(context):
 
     """
-    :param context: Needed for respective guild
+    :param context: Needed for guild and its related attributes
     :return: None
 
     Retrieves the necessary metrics and sends

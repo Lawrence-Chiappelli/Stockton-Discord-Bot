@@ -30,14 +30,12 @@ async def on_ready():
     print(f"Bot ready! (in {milliseconds} milliseconds!)")
 
     try:
-        server = client.get_guild(int(os.environ['DISCORD-ID-SERVER']))  # No client object to grab
-        channel = discord.utils.get(server.channels, name=config['channel']['botcommands'])
-    except KeyError as ke:
-        server = None
+        channel = utils.get_bot_commands_channel(client)
+    except (KeyError, Exception) as ke:
         channel = None
         print(f"No Discord server ID has been provided. This is okay. Exception\n{ke}")
 
-    if server and channel:
+    if channel:
         await channel.send(f"Bot successfully restarted in `{milliseconds}` milliseconds.\n\nTwitter poller needs to be started with `!twitterpoll`. See `!metrics`.")
 
     if await validators.machine_availabilty_embed_exists(client):
@@ -74,8 +72,8 @@ async def on_raw_reaction_remove(payload):
         return
 
     if validators.is_bot_reaction_function(emoji, channel):
-        print(F"Is bot reaction function")
-        await reactiondirectory.find_reaction_function(emoji, channel, member)
+        await reactiondirectory.debug_reaction(emoji, channel, member, False)
+        await reactiondirectory.find_reaction_function(emoji, channel, member, False)
     else:
         print(f"Is not bot reaction function!")
 
@@ -120,7 +118,7 @@ async def on_raw_message_delete(payload):
     channel = discord.utils.get(guild.channels, id=payload.channel_id)
     message = payload.cached_message
 
-    if channel.name == gsheetsAPI.get_audit_logs_channel_name():
+    if channel.name == gsheetsAPI.SheetChannels().get_audit_logs_channel_name():
         return
 
     embed = discord.Embed(title="", description="*Claim responsibility below*", color=0x2eff93)
@@ -131,9 +129,9 @@ async def on_raw_message_delete(payload):
     embed.add_field(name="Content", value=f"`{message.content}`", inline=False)
     embed.add_field(name="Channel", value=channel.mention, inline=False)
     embed.add_field(name="Time deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
-    embed.set_footer(text=f"`Deleted by:` {config['emoji']['audit']} You | {config['emoji']['author']} Author")
+    embed.set_footer(text=f"Deleted by: {config['emoji']['audit']} You | {config['emoji']['author']} Author")
 
-    audit_channel = discord.utils.get(guild.channels, name=config['channel']['auditlogs'])
+    audit_channel = utils.get_audit_log_channel(guild)
     await audit_channel.send(embed=embed)
 
 
@@ -161,19 +159,8 @@ async def on_member_remove(member):
     :return: a message to the welcome channel indicating their absence.
     """
 
-    welcome_channel_name = gsheetsAPI.get_welcome_channel_name()
-    welcome_channel = discord.utils.get(member.guild.channels, name=welcome_channel_name)
+    welcome_channel = utils.get_welcome_channel(member.guild)
     await welcome_channel.send(f"**{member.name}** has left the server.")
-
-
-async def get_emoji_from_bot(message):
-
-    if [item[0] for item in message.embeds]:
-        await message.channel.send("Found an embed")
-        return None
-    else:
-        await message.channel.send("Did not find an embed")
-        return None
 
 
 def is_authed_user():
@@ -186,12 +173,24 @@ def is_authed_user():
     return commands.check(predicate)
 
 
-"""
-Bot Commands:
-"""
+@client.event
+async def on_command_error(ctx, error):
+
+    message = f"Command error or exception found! See below:\n\nCOMMAND - `{ctx.message.content}`\nERROR - `{error}`\nSENT BY - `{ctx.author}`\nFAILED AT - {ctx.channel.mention}"
+    print(message)
+
+    owner = discord.utils.get(ctx.guild.members, id=int(config['id']['owner']))
+    commands_channel = utils.get_bot_commands_channel(ctx.guild)
+    if owner:
+        message += f"\n\n{owner.mention}"
+
+    if owner and commands_channel is None:
+        await owner.send(f"{message}")
+    else:
+        await commands_channel.send(message)
 
 
-@client.command(name='auth', pass_context=True)
+@client.command(name='auth', pass_context=True, usage="<category>", descrption="description")
 @is_authed_user()
 async def auth(ctx):
 
@@ -204,11 +203,6 @@ async def auth(ctx):
     await embeddirectory.send_authentication_embed(ctx)
 
 
-@auth.error
-async def auth_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name='gamelab', pass_context=True)
 @is_authed_user()
 async def gamelab(ctx):
@@ -219,11 +213,6 @@ async def gamelab(ctx):
     :return: None
     """
     await embeddirectory.send_machine_availability_embed(ctx)
-
-
-@gamelab.error
-async def gamelab_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='scrape', pass_context=True)
@@ -265,11 +254,6 @@ async def gameselection(ctx):
     await embeddirectory.send_game_selection_embed(ctx)
 
 
-@gameselection.error
-async def gameselection_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name='helppanel', pass_context=True)
 @is_authed_user()
 async def helppanel(ctx):
@@ -281,11 +265,6 @@ async def helppanel(ctx):
     """
 
     await helpdirectory.send_help_panel(ctx, client)
-
-
-@helppanel.error
-async def helppanel_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='eventpanel', pass_context=True)
@@ -301,11 +280,6 @@ async def eventpanel(ctx):
     await embeddirectory.send_event_embed(ctx, client)
 
 
-@eventpanel.error
-async def eventpanel_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name="twitterstream", pass_context=True)
 @is_authed_user()
 async def twitterstream(ctx):
@@ -317,11 +291,6 @@ async def twitterstream(ctx):
     """
 
     twitterfeed.force_thread_start_for_auth()
-
-
-@twitterstream.error
-async def faq_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='twitterpoll', pass_context=True)
@@ -342,14 +311,9 @@ async def twitterpoll(ctx):
             ]
         )
     except Exception as last_resort:
-        commands_channel_name = discord.utils.get(ctx.guild.channels, name=config['channel']['bot-commands'])
+        commands_channel = utils.get_bot_commands_channel(ctx.guild)
         owner = utils.get_codebase_owner_member(ctx.guild)
-        await commands_channel_name.send(f"{owner.mention}, all exceptions were tried against the Twitter streamer. The following was captured:\n{last_resort}\n\nIt is highly recommended to execute `!twitterstream` again.")
-
-
-@twitterpoll.error
-async def stream_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+        await commands_channel.send(f"{owner.mention}, all exceptions were tried against the Twitter streamer. The following was captured:\n{last_resort}\n\nIt is highly recommended to execute `!twitterstream` again.")
 
 
 @client.command(name='populate', pass_context=True)
@@ -365,11 +329,6 @@ async def populate(ctx):
     await twitterfeed.populate_channel_with_tweets(ctx)
 
 
-@populate.error
-async def populate_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name="tweet", pass_context=True)
 @is_authed_user()
 async def tweet(ctx):
@@ -381,11 +340,6 @@ async def tweet(ctx):
     """
 
     await twitterfeed.get_last_tweet()
-
-
-@tweet.error
-async def tweet_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name="gmpanel", pass_context=True)
@@ -401,11 +355,6 @@ async def gmpanel(ctx):
     await helpdirectory.send_gm_panel(client, ctx)
 
 
-@gmpanel.error
-async def gmpanel(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name="forceoff", pass_context=True)
 @is_authed_user()
 async def forceoff(ctx):
@@ -416,12 +365,7 @@ async def forceoff(ctx):
     :return: None
     """
 
-    await gamelabscraper.force_off(client)
-
-
-@forceoff.error
-async def forceoff_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
+    await gamelabscraper.force_off(ctx.guild)
 
 
 @client.command(name="calendar", pass_context=True)
@@ -437,11 +381,6 @@ async def calendar(ctx):
     await embeddirectory.send_calendar_embed(ctx)
 
 
-@calendar.error
-async def calendar_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name="boosters", pass_context=True)
 @is_authed_user()
 async def boosters(ctx):
@@ -453,11 +392,6 @@ async def boosters(ctx):
     """
 
     await embeddirectory.send_boosters_embed(ctx)
-
-
-@boosters.error
-async def boosters_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name="faq", pass_context=True)
@@ -473,11 +407,6 @@ async def faq(ctx):
     await embeddirectory.send_faq_embed(ctx)
 
 
-@faq.error
-async def faq_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
-
-
 @client.command(name="metrics", pass_context=True)
 @is_authed_user()
 async def metrics(ctx):
@@ -489,11 +418,6 @@ async def metrics(ctx):
     """
 
     await servermetrics.display_metrics(ctx)
-
-
-@metrics.error
-async def metrics_error(ctx, error):
-    print(f"{ctx.author.name} is not authorized to use '{ctx.message.content}':\nError message: {error}")
 
 
 @client.command(name='restart', pass_context=True)

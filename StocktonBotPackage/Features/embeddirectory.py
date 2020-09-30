@@ -196,18 +196,14 @@ async def send_faq_embed(context):
     await context.message.delete()
 
     questions, answers = gsheetsAPI.get_faq()
-    faq_channel_name = gsheetsAPI.get_faq_channel_name()
-    help_dir_channel_name = gsheetsAPI.get_help_directory_channel_name()
-
-    faq_channel = discord.utils.get(context.guild.channels, name=faq_channel_name)
-    help_dir_channel = discord.utils.get(context.guild.channels, name=help_dir_channel_name)
+    faq_channel = utils.get_faq_channel(context.guild)
+    help_dir_channel = utils.get_help_directory_channel(context.guild)
 
     if faq_channel is None:
-        bot_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-        bot_channel = discord.utils.get(context.guild.channels, name=bot_channel_name)
+        bot_channel = utils.get_bot_commands_channel(context.guild)
         await bot_channel.send(f"Missing FAQ channel!")
 
-    try:
+    try:  # Questions are not a part of the config file
         questions_channel = discord.utils.get(context.guild.channels, name="questions")
     except Exception:
         questions_channel = None

@@ -384,12 +384,12 @@ class Poll:
         2 second intervals.
 
         """
-        social_chan_name = gsheetsAPI.get_social_media_feed_channel_name()
-        commands_chan_name = gsheetsAPI.get_bot_commands_channel_name()
-        listener.social_media_channel = discord.utils.get(client.get_all_channels(), name=social_chan_name)
-        listener.commands_channel = discord.utils.get(client.get_all_channels(), name=commands_chan_name)
-        print(f"Polling for stream...")
+
+        listener.social_media_channel = utils.get_social_media_feed_channel(client.guild)
+        listener.commands_channel = utils.get_bot_commands_channel(client.guild)
         listener.error = None  # Assuming a user does this manually, this needs to clear
+
+        print(f"Polling for stream...")
 
         await listener.commands_channel.send(f"Started Twitter feed.")
         self.is_polling = True
@@ -528,8 +528,7 @@ async def embed_and_send(static_data, dynamic_data):
 
 async def populate_channel_with_tweets(context):
 
-    bot_commands_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-    debug_channel = discord.utils.get(context.message.guild.channels, name=bot_commands_channel_name)
+    debug_channel = utils.get_bot_commands_channel(context.guild)
 
     num_tweets = 20
     queue_wrapper.is_populating = True

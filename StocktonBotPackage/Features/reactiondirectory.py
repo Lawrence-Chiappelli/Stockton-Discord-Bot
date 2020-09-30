@@ -23,7 +23,7 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
     if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # Convert the emoji, if custom
         emoji = emoji.name
 
-    if _is_member_authenticating(emoji, channel):
+    if _is_member_authenticating(channel, emoji):
         await _authenticate_member(member, channel)
 
     elif _is_moderator_auditing(channel, emoji):  # TODO: Will not work for messages deleted in quick succession
@@ -36,12 +36,15 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
         await _assign_event_role(member, emoji, is_add)
 
     else:
-        print(F"No function found! ({member.name} reacted in channel {channel.name})")
+        if is_add:
+            print(F"No function found! ({member.name} reacted to {emoji} in channel {channel.name})")
+        else:
+            print(F"No function found! ({member.name} unreacted from {emoji} in channel {channel.name})")
 
     return None
 
 
-async def debug_reaction(emoji, channel, member):
+async def debug_reaction(emoji, channel, member, is_add=True):
 
     """
     :param emoji: The emoji the user reacted with
@@ -52,15 +55,15 @@ async def debug_reaction(emoji, channel, member):
     Ideally, this should only execute if the user
     is reacting under personally designated environment
     (channel compared to emoji) matches.
-
-    TODO: Maybe this belongs in utils.py?
     """
 
-    bot_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-    bot_channel = discord.utils.get(member.guild.channels, name=bot_channel_name)
+    bot_channel = utils.get_bot_commands_channel(member.guild)
     owner = utils.get_codebase_owner_member(member.guild)
 
-    await bot_channel.send(f"{owner.mention}, member `{member}` reacted to {emoji} in {channel.mention}")
+    if is_add:
+        await bot_channel.send(f"{owner.mention}, member `{member}` reacted to {emoji} in {channel.mention}")
+    else:
+        await bot_channel.send(f"{owner.mention}, member `{member}` unreacted from {emoji} in {channel.mention}")
 
 
 async def _authenticate_member(member, channel):
@@ -143,12 +146,12 @@ async def _get_msg_and_embed(channel):
         return message, embed
 
 
-def _is_member_authenticating(emoji, channel):
+def _is_member_authenticating(channel, emoji):
 
     auth_emoji = config['emoji']['authed']
-    auth_channel = gsheetsAPI.get_landing_channel_name()
+    auth_channel = utils.get_landing_channel(channel.guild)
 
-    if str(emoji) == auth_emoji and str(channel) == auth_channel:
+    if str(emoji) == auth_emoji and channel == auth_channel:
         return True
     return False
 
@@ -157,9 +160,9 @@ def _is_moderator_auditing(channel, emoji):
 
     audit_emoji = config['emoji']['audit']
     author_emoji = config['emoji']['author']
-    audit_channel = gsheetsAPI.get_audit_logs_channel_name()
+    audit_channel = utils.get_audit_log_channel(channel.guild)
 
-    if (str(emoji) == audit_emoji or str(emoji) == author_emoji) and str(channel) == audit_channel:
+    if (str(emoji) == audit_emoji or str(emoji) == author_emoji) and channel == audit_channel:
         return True
     return False
 
@@ -167,18 +170,19 @@ def _is_moderator_auditing(channel, emoji):
 def _is_assigning_game_role(emoji, channel):
 
     game_emojis = dict(config.items('emoji-games'))  # TODO: Why dict?
-    gameselection_channel = gsheetsAPI.get_game_selection_channel_name()
+    gameselection_channel = utils.get_game_selection_channel(channel.guild)
 
-    if str(emoji) in game_emojis.values() and str(channel) == gameselection_channel:
+    if str(emoji) in game_emojis.values() and channel == gameselection_channel:
         return True
     return False
 
 
 def _is_assigning_event_role(emoji, channel):
 
-    events_channel = gsheetsAPI.get_event_subscriptions_channel_name()
-    _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()  # TODO: Weigh options (rate limit usage vs readability)
+    events_channel = utils.get_event_subscriptions_channel(channel.guild)
+    _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
+    # TODO: Weight options between (rate limits and performance) vs readability
 
-    if str(emoji) in event_emojis and str(channel) == events_channel:  # Event emojis here is list and not dict
+    if str(emoji) in str(event_emojis) and channel == events_channel:  # Event emojis here is list and not dict
         return True
     return False

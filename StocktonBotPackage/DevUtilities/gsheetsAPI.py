@@ -38,9 +38,9 @@ def open_google_sheets_client():
     print(f"Opening Google Sheets client, please wait...")
     json_keyfile = dropboxAPI.get_ghseets_credentials()
     credentials = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
-    client = gspread.authorize(credentials)
+    clientt = gspread.authorize(credentials)
     print(f"...Google sheets client successfully opened!")
-    return client
+    return clientt
 
 
 # ------------------------------------+
@@ -123,11 +123,6 @@ def get_authed_user_ids():
     return ids
 
 
-def get_sheet_channel_names():
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CHANNELS')
-    return sheet
-
-
 def get_gm_info():
     sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('GAME MANAGERS')
     role_titles = sheet.col_values(1)
@@ -186,100 +181,81 @@ to warrant separate methods that pull individual cell information.
 """
 
 
-class GsheetsChannelIndice:
-
-    """
-    View the Google Sheets Config document for this
-    """
-
-    # TODO: Replace hardcoded indice with matching dictionary key
+class SheetChannels:
 
     def __init__(self):
-        self.landing = 0
-        self.social_media_feed = 1
-        self.help_directory = 2
-        self.bot_command = 3
-        self.game_selection = 4
-        self.gaming_lab = 5
-        self.event_subscriptions = 6
-        self.faq = 7
-        self.audit_logs = 8
-        self.welcome = 9
+        self.sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CHANNELS')
+        self.column_channel_names = 2
+        self.index_landing = 0  # TODO: Replace hardcoded indice with matching dictionary key?
+        self.index_social_media_feed = 1
+        self.index_help_directory = 2
+        self.index_bot_command = 3
+        self.index_game_selection = 4
+        self.index_gaming_lab = 5
+        self.index_event_subscriptions = 6
+        self.index_faq = 7
+        self.index_audit_logs = 8
+        self.index_welcome = 9
 
+    def _get_all_channel_names(self):
 
-channel_indice = GsheetsChannelIndice()
+        """
+        :return: list of channel all channel names
+        """
 
+        channel_names = self.sheet.col_values(self.column_channel_names)
+        del channel_names[format.start:format.end]
+        return channel_names
 
-def get_all_channel_names():
+    def get_landing_channel_name(self):
 
-    """
-    :return: the raw channel names, not the sheet object
-    """
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_landing]
 
-    sheet = get_sheet_channel_names()
-    channel_names = sheet.col_values(2)
-    del channel_names[format.start:format.end]
-    return channel_names
+    def get_social_media_feed_channel_name(self):
 
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_social_media_feed]
 
-def get_landing_channel_name():
+    def get_help_directory_channel_name(self):
 
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.landing]
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_help_directory]
 
+    def get_bot_commands_channel_name(self):
 
-def get_social_media_feed_channel_name():
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_bot_command]
 
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.social_media_feed]
+    def get_game_selection_channel_name(self):
 
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_game_selection]
 
-def get_help_directory_channel_name():
+    def get_game_lab_channel_name(self):
 
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.help_directory]
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_gaming_lab]
 
+    def get_event_subscriptions_channel_name(self):
 
-def get_bot_commands_channel_name():
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_event_subscriptions]
 
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.bot_command]
+    def get_faq_channel_name(self):
 
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_faq]
 
-def get_game_selection_channel_name():
+    def get_audit_logs_channel_name(self):
 
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.game_selection]
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_audit_logs]
 
+    def get_welcome_channel_name(self):
 
-def get_game_lab_channel_name():
-
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.gaming_lab]
-
-
-def get_event_subscriptions_channel_name():
-
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.event_subscriptions]
-
-
-def get_faq_channel_name():
-
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.faq]
-
-
-def get_audit_logs_channel_name():
-
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.audit_logs]
-
-
-def get_welcome_channel_name():
-
-    channel_names = get_all_channel_names()
-    return channel_names[channel_indice.welcome]
+        channel_names = self._get_all_channel_names()
+        return channel_names[self.index_welcome]
 
 
 def validate_resource_usage():
