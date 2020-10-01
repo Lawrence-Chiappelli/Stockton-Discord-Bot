@@ -51,13 +51,14 @@ async def on_raw_reaction_add(payload):
     emoji = payload.emoji
     channel = client.get_channel(payload.channel_id)
     member = payload.member
+    message = await channel.fetch_message(payload.message_id)  # TODO: Investigate potential performance hits with this
 
     if member.bot:
         return
 
     if validators.is_bot_reaction_function(emoji, channel):
         await reactiondirectory.debug_reaction(emoji, channel, member)
-        await reactiondirectory.find_reaction_function(emoji, channel, member)
+        await reactiondirectory.find_reaction_function(emoji, channel, member, message)
 
 
 @client.event
@@ -66,6 +67,8 @@ async def on_raw_reaction_remove(payload):
     emoji = payload.emoji
     channel = client.get_channel(payload.channel_id)
     member = discord.utils.get(client.get_all_members(), id=payload.user_id)
+    message = await channel.fetch_message(payload.message_id)
+
     # Attribute member "Only available if event_type is REACTION_ADD."
 
     if member.bot:
@@ -73,7 +76,7 @@ async def on_raw_reaction_remove(payload):
 
     if validators.is_bot_reaction_function(emoji, channel):
         await reactiondirectory.debug_reaction(emoji, channel, member, False)
-        await reactiondirectory.find_reaction_function(emoji, channel, member, False)
+        await reactiondirectory.find_reaction_function(emoji, channel, member, message, False)
     else:
         print(f"Is not bot reaction function!")
 

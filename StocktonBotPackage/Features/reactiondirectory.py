@@ -7,12 +7,13 @@ config = configparser.get_parsed_config()  #
 # ------------------------------------------
 
 
-async def find_reaction_function(emoji, channel, member, is_add=True):
+async def find_reaction_function(emoji, channel, member, message, is_add=True):
 
     """
     :param emoji: The emoji reacted to
     :param channel: The channel reacted in
     :param member: The member that reacted
+    :param message: the message object belonging to the reaction
     :param is_add: Determines whether to
     add / remove reaction / role
     Default: True (reason: users always
@@ -24,10 +25,10 @@ async def find_reaction_function(emoji, channel, member, is_add=True):
         emoji = emoji.name
 
     if _is_member_authenticating(channel, emoji):
-        await _authenticate_member(member, channel)
+        await _authenticate_member(member, channel, message)
 
-    elif _is_moderator_auditing(channel, emoji):  # TODO: Will not work for messages deleted in quick succession
-        await _audit_member(channel, emoji, member)
+    elif _is_moderator_auditing(channel, emoji):
+        await _audit_member(member, emoji, message, is_add)
 
     elif _is_assigning_game_role(emoji, channel):
         await _assign_game_role(member, emoji, is_add)
@@ -66,9 +67,9 @@ async def debug_reaction(emoji, channel, member, is_add=True):
         await bot_channel.send(f"{owner.mention}, member `{member}` unreacted from {emoji} in {channel.mention}")
 
 
-async def _authenticate_member(member, channel):
+async def _authenticate_member(member, channel, message):
 
-    message, embed = await _get_msg_and_embed(channel)
+    embed = message.embeds[0]
     auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
     await member.add_roles(auth_role)
 
@@ -77,12 +78,13 @@ async def _authenticate_member(member, channel):
     await message.edit(embed=embed)
 
 
-async def _audit_member(channel, emoji, member):
+async def _audit_member(member, emoji, message, is_add):
 
     """
-    :param channel: The channel the user reacted in
     :param emoji: The emoji the user reacted with
     :param member: The member doing the reacting
+    :param message: The message belong to the reaction
+    :param is_add: Action to take if reaction is raw add
     :return: None
 
     Simply edits in the name of the user
@@ -91,7 +93,10 @@ async def _audit_member(channel, emoji, member):
     author being specified in the embed
     """
 
-    message, embed = await _get_msg_and_embed(channel)
+    if not is_add:  # For now, nothing special needs to occur if reaction is remove
+        return
+
+    embed = message.embeds[0]
 
     if emoji == config['emoji']['audit']:
         embed.description = f'`{member}`'
@@ -137,13 +142,6 @@ async def _assign_event_role(member, emoji, is_add):
     else:
         if event_role in member.roles:
             await member.remove_roles(event_role)
-
-
-async def _get_msg_and_embed(channel):
-
-        message = [msg async for msg in channel.history(limit=1)].pop()
-        embed = message.embeds[0]
-        return message, embed
 
 
 def _is_member_authenticating(channel, emoji):
