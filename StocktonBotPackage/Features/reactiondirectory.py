@@ -1,10 +1,10 @@
-from StocktonBotPackage.DevUtilities import configparser, utils, gsheetsAPI
+from StocktonBotPackage.DevUtilities import configutil, utils
 import discord
 import asyncio
 
-# ------------------------------------------
-config = configparser.get_parsed_config()  #
-# ------------------------------------------
+# ---------------------------------------#
+config = configutil.get_parsed_config()  #
+# ---------------------------------------#
 
 
 async def find_reaction_function(emoji, channel, member, message, is_add=True):
@@ -16,16 +16,21 @@ async def find_reaction_function(emoji, channel, member, message, is_add=True):
     :param message: the message object belonging to the reaction
     :param is_add: Determines whether to
     add / remove reaction / role
+
     Default: True (reason: users always
     initially add reactions)
+
+    Do NOT search through spreadsheet for data- store them
+    before doing so as to not burn through rate limits.
+
     :return: None
     """
 
-    if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # Convert the emoji, if custom
+    if isinstance(emoji, discord.partial_emoji.PartialEmoji):  # Grab the name of the custom emoji
         emoji = emoji.name
 
     if _is_member_authenticating(channel, emoji):
-        await _authenticate_member(member, channel, message)
+        await _authenticate_member(member, message, is_add)
 
     elif _is_moderator_auditing(channel, emoji):
         await _audit_member(member, emoji, message, is_add)
@@ -37,6 +42,7 @@ async def find_reaction_function(emoji, channel, member, message, is_add=True):
         await _assign_event_role(member, emoji, is_add)
 
     else:
+
         if is_add:
             print(F"No function found! ({member.name} reacted to {emoji} in channel {channel.name})")
         else:
@@ -67,7 +73,10 @@ async def debug_reaction(emoji, channel, member, is_add=True):
         await bot_channel.send(f"{owner.mention}, member `{member}` unreacted from {emoji} in {channel.mention}")
 
 
-async def _authenticate_member(member, channel, message):
+async def _authenticate_member(member, message, is_add):
+
+    if not is_add:
+        return
 
     embed = message.embeds[0]
     auth_role = discord.utils.get(member.guild.roles, name=config['role']['authed'])
@@ -120,12 +129,8 @@ async def _assign_game_role(member, emoji, is_add):
 
 async def _assign_event_role(member, emoji, is_add):
 
-    event_role_names, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
-    """
-    For built-in emojis, we have to iterate through
-    our list of wanted emojis and extract
-    the corresponding role name
-    """
+    event_emojis = [emoji_ for emoji_ in config['emoji-events'].values()]
+    event_role_names = [emoji_ for emoji_ in config['role-events'].values()]
 
     matching_role_name = None
     for i, event_role_name in enumerate(event_role_names):
@@ -147,40 +152,42 @@ async def _assign_event_role(member, emoji, is_add):
 def _is_member_authenticating(channel, emoji):
 
     auth_emoji = config['emoji']['authed']
-    auth_channel = utils.get_landing_channel(channel.guild)
+    auth_channel = config['channel']['landing']
 
-    if str(emoji) == auth_emoji and channel == auth_channel:
+    if channel.name == auth_channel:
+        print(F"Channel.name {channel.name} is auth channel {auth_channel}")
+
+    if str(emoji) == auth_emoji and channel.name == auth_channel:
         return True
     return False
 
 
 def _is_moderator_auditing(channel, emoji):
 
-    audit_emoji = config['emoji']['audit']
-    author_emoji = config['emoji']['author']
-    audit_channel = utils.get_audit_log_channel(channel.guild)
+    audit_emoji = config['emoji']['audit']  # Not externally configurable
+    author_emoji = config['emoji']['author']  # Also not externally congiruable
+    audit_channel = config['channel']['auditlogs']
 
-    if (str(emoji) == audit_emoji or str(emoji) == author_emoji) and channel == audit_channel:
+    if (str(emoji) == audit_emoji or str(emoji) == author_emoji) and channel.name == audit_channel:
         return True
     return False
 
 
 def _is_assigning_game_role(emoji, channel):
 
-    game_emojis = dict(config.items('emoji-games'))  # TODO: Why dict?
-    gameselection_channel = utils.get_game_selection_channel(channel.guild)
+    game_emojis = [emoji_ for emoji_ in config['emoji-games'].values()]
+    gameselection_channel = config['channel']['gameselection']
 
-    if str(emoji) in game_emojis.values() and channel == gameselection_channel:
+    if str(emoji).replace("Of", "of") in game_emojis and channel.name == gameselection_channel:
         return True
     return False
 
 
 def _is_assigning_event_role(emoji, channel):
 
-    events_channel = utils.get_event_subscriptions_channel(channel.guild)
-    _, event_emojis, _ = gsheetsAPI.get_event_subscriptions()
-    # TODO: Weight options between (rate limits and performance) vs readability
+    event_emojis = [emoji_ for emoji_ in config['emoji-events'].values()]
+    events_channel = config['channel']['eventsubscriptions']
 
-    if str(emoji) in str(event_emojis) and channel == events_channel:  # Event emojis here is list and not dict
+    if str(emoji) in event_emojis and channel.name == events_channel:  # Event emojis here is list and not dict
         return True
     return False

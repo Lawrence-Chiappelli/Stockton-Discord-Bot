@@ -1,15 +1,22 @@
-from StocktonBotPackage.DevUtilities import gsheetsAPI
-import discord
+from StocktonBotPackage.DevUtilities import utils
 import heroku3
+import requests
+import time
 import os
 
 print(f"Getting Heroku auth...")
-try:
-    auth = heroku3.from_key((os.environ['HEROKU-API-KEY']))
-    print(f"...Heroku auth successfully connected!")
-except NameError:
-    auth = None
-    raise NameError("No key has been provided for Heroku API. This is okay. Continuing program execution.")
+while True:
+    try:
+        auth = heroku3.from_key((os.environ['HEROKU-API-KEY']))
+        print(f"...Heroku auth successfully connected!")
+        break
+    except NameError:
+        auth = None
+        raise NameError("No key has been provided for Heroku API. This is okay. Continuing program execution.")
+    except requests.exceptions.ConnectionError as exceeded_rate_limits:  # Typically only ever an issue if I'm testing
+        print(f"Heroku connection rate limits exceeded. Retrying in 5 seconds.")
+        time.sleep(5)
+        continue
 
 
 class Heroku:
@@ -22,8 +29,7 @@ class Heroku:
 
         print(F"Restarting bot!")
 
-        bot_channel_name = gsheetsAPI.get_bot_commands_channel_name()
-        bot_channel = discord.utils.get(context.guild.channels, name=bot_channel_name)
+        bot_channel = utils.get_bot_commands_channel(context.guild)
 
         if self.is_authenticated() and [dyno.state for dyno in self.app.dynos()]:
             await bot_channel.send("Restarting bot from Heroku- please wait approximately 15 seconds...")
