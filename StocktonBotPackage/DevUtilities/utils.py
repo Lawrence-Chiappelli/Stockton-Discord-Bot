@@ -37,7 +37,6 @@ def get_codebase_owner_member(guild):
 
     try:
         owner = discord.utils.get(guild.members, id=int(config['id']['owner']))
-        print(f"Owner: {owner}")
     except Exception as e:
         owner = f"`No codebase owner found: {e}`\n"
 

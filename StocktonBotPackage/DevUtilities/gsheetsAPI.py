@@ -1,5 +1,6 @@
 from oauth2client.service_account import ServiceAccountCredentials
 from StocktonBotPackage.DevUtilities import configutil, dropboxAPI
+from datetime import datetime
 import threading
 import gspread
 import dropbox
@@ -52,11 +53,24 @@ file = client_gsheets.open('Stockton Discord Bot - CONFIGURATION')  #
 
 def api_error_handler(func):
 
+    """
+    :param func: An error handling wrapper
+    :return: Function computation if valid,
+    otherwise return None and retry
+    """
+
     def inner(*args):
         try:
             return func(*args)
         except gspread.exceptions.APIError:
             print(f"Resource quota exhausted exception caught at function {func}")
+        except ConnectionResetError as connection_reset_by_peer:
+            print(f"Connection reset by peer, caught at function {func}:\n{connection_reset_by_peer}")
+        except TimeoutError as read_timeout_error:
+            print(f"TimeoutError exception caught at function {func}\n{read_timeout_error}")
+        except Exception as unknown_exception:
+            print(f"Unknown exception caught at function {func}:\n{unknown_exception}")
+        finally:
             return None
 
     return inner
@@ -173,10 +187,11 @@ def bg_google_sheets_config_ping():
     print(f"... pinging worksheets!")
 
     total = 0
-    passed_time = 0
+    num_unsupported_sheets = 2  # Change this during development
+
     while True:
 
-        print(f"\t<ping>")
+        print(f"\t<ping> (@ {datetime.now()})")
 
         try:
             all_worksheets = file.worksheets()  # 1
@@ -185,58 +200,67 @@ def bg_google_sheets_config_ping():
             print(f"\tResource quota exhausted exception caught in ping thread. Retrying in 10 seconds.")
             time.sleep(10)
             continue
+        except Exception as generic_placeholder:
+
+            """
+            ConnectionResetByPeer and TimeoutError exceptions are the most likely to be caught here.
+            Generally speaking, regardless of the exception that may occur trying to access the
+            Gspread API, I would still like the program to continue normally after waiting some time.
+            """
+
+            print(F"{type(generic_placeholder)} (exception) caught in ping thread. Retrying in 10 seconds.")
+            time.sleep(10)
+            continue
+
 
         try:
             for worksheet in all_worksheets:
 
                 if worksheet.title == config['api-gspread-tab-names']['contactcards']:
-                    total += 1
                     threading.Thread(target=store_help_directory_config, args=[worksheet], daemon=True).start()  # 2
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['faq']:
-                    total += 1
                     threading.Thread(target=store_config_faq, args=[worksheet], daemon=True).start()  # 3
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['supportedgames']:
-                    total += 1
                     threading.Thread(target=store_config_supported_games, args=[worksheet], daemon=True).start()  # 4
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['eventsubscriptions']:
-                    total += 1
                     threading.Thread(target=store_config_event_subs, args=[worksheet], daemon=True).start()  # 5
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['blueroom']:
-                    total += 1
                     threading.Thread(target=store_config_reserved_pcs_blue, args=[worksheet], daemon=True).start()  # 6
-                elif worksheet.title == config['api-gspread-tab-names']['gamemanager']:
                     total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['gamemanager']:
                     threading.Thread(target=store_config_game_managers, args=[worksheet], daemon=True).start()  # 7
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['goldroom']:
                     # TODO
                     pass
                 elif worksheet.title == config['api-gspread-tab-names']['channels']:
-                    total += 1
                     threading.Thread(target=store_config_channels, args=[worksheet], daemon=True).start()  # 8
+                    total += 1
                 elif worksheet.title == config['api-gspread-tab-names']['calendar']:
-                    total += 1
                     threading.Thread(target=store_config_calendar, args=[worksheet], daemon=True).start()  # 9
-                elif worksheet.title == config['api-gspread-tab-names']['authorizedusers']:
                     total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['authorizedusers']:
                     threading.Thread(target=store_config_authed_users, args=[worksheet], daemon=True).start()  # 10
-        except AttributeError:
-            print(F"AttributeError exception occurred (not fatal, probably due to timing inconsistencies).\nRetrying in 5 seconds:")
-            time.sleep(5)
-            continue
-        except TimeoutError as timeout_error:
-            print(f"Timeout error occurred, please investigate:\n{timeout_error}")
-            passed_time = 0
+                    total += 1
         except Exception as unknown_exception:
-            print(f"Unknown exception caught:\n{unknown_exception}")
-            passed_time = 0
+            print(f"Unknown exception caught processing worksheet data. (WARNING: The wrapper needs to handle this).")
+            print(f"Exception type: {type(unknown_exception)}")
+            print(f"Error message:\n{unknown_exception}")
 
-        print(F"Finished iteration, current total: {total}")
-        passed_time += 10
-        print(f"Passed time: {passed_time}")
-        if passed_time > 1000:
-            passed_time = 0
+        print(f"\tCurrent total: {total}")
+        if total >= 1000:
+            total = 0
 
-        time.sleep(10)  # Optimalish time - this should be adjusted based on the number of worksheets
+        """
+        The following adjusts rate limit consumption by taking into
+        account the number of current worksheets minus the number of
+        unsupported worksheets.
+        """
+        time.sleep(len(all_worksheets)-num_unsupported_sheets)
 
 
 print(f"Starting Google Sheet background thread...")
