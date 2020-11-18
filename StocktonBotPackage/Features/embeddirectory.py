@@ -1,11 +1,11 @@
 # Abstract the command content away from bot.py and keep it clean.
 
-from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI, utils
+from StocktonBotPackage.DevUtilities import configutil, utils
 from datetime import datetime
 import discord
 
 # -----------------------------------------+
-config = configparser.get_parsed_config()  #
+config = configutil.get_parsed_config()  #
 # -----------------------------------------+
 
 
@@ -22,35 +22,46 @@ async def send_authentication_embed(context):
     embed.add_field(name="You will receive this role:", value=role.mention, inline=True)
     embed.add_field(name="Users Authorized:", value=utils.get_num_members_with_role(role), inline=True)
     embed.set_footer(text="Stockton Discord Bot developed by ChocolateThunder#5292 • Lawrence Chiappelli.")
-    await context.message.channel.send(embed=embed)
-    last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
+
+    await context.send(embed=embed)
+    last_message = await utils.get_last_message_from_channel(context.channel)
     await last_message.add_reaction("✅")
 
     return None
 
 
-async def send_event_embed(context, client):  # TODO: Why did I have this client object here?
+async def send_event_embed(context):
 
     await context.message.delete()
-    role_names, emojis, description_values = gsheetsAPI.get_event_subscriptions()
+    event_info = utils.get_event_subscription_info()
+
+    # Not critical that this information is stored
 
     embed = discord.Embed(
-        description="Interested in participating in one or more of our events? Check out below what we have to offer and you'll be pinged with the corresponding role when an event is happening!",
+        description="Interested in participating in one or more of our events?\nCheck out below what we have to offer and react to receive relevant event pings!",
         color=0xff4d4d)
     embed.set_author(name="📆 Role Menu: Event Subscriptions")
     embed.set_thumbnail(url="https://image.flaticon.com/icons/png/512/1458/1458512.png")
-    embed.set_footer(
-        text="By reacting below, you will receive one of the corresponding event roles above! You will be pinged when an event is happening.")
+    # embed.set_footer(text="React above to receive updates!")
+    # The footer feels and reads redundant
 
-    for i, role_name in enumerate(role_names):
+    for i, role_name in enumerate(event_info[0]):  # All internal lists will be equivalent length
 
         role = discord.utils.get(context.guild.roles, name=role_name)
-        embed.add_field(name=f"{emojis[i]} - {role_name}", value=f"{role.mention} | {description_values[i]}", inline=True)
+        num_subs = utils.get_num_members_with_role(role)
+        embed.add_field(name=f"{event_info[1][i]} - {role_name}", value=f"About {role.mention}:\n\n`{event_info[2][i]}`", inline=False)
 
-    await context.send(embed=embed)
-    last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
-    for emoji in emojis:
-        await last_message.add_reaction(emoji)
+    last_message = await utils.get_last_message_from_channel(context.channel)
+    if last_message:
+        await last_message.edit(embed=embed)
+    else:
+        await context.send(embed=embed)
+
+        # Need to check for last message again to
+        # add reactions to the appropriate message
+        last_message = await utils.get_last_message_from_channel(context.channel)
+        for emoji in event_info[1]:
+            await last_message.add_reaction(emoji)
 
 
 async def send_machine_availability_embed(context):
@@ -60,6 +71,8 @@ async def send_machine_availability_embed(context):
     embed = discord.Embed(title=config['lab']['blueroomnumber'], description=config['lab']['blueroom'], color=0x5294ff)
     embed.set_author(name="💻 Gaming Lab Machine Availability", url=config['website']['url'])
     embed.set_thumbnail(url="https://i.imgur.com/eVqogAY.jpg")
+
+    # TODO: Redo the following using some form of iteration
 
     embed.add_field(name="1 🖥️", value=config['lab-icons']['waiting'], inline=True)
     embed.add_field(name="2 🖥️", value=config['lab-icons']['waiting'], inline=True)
@@ -110,56 +123,72 @@ async def send_machine_availability_embed(context):
 
 async def send_game_selection_embed(context):
 
+    """
+    :param context: Command context
+    :return: None
+
+    Sends out the game selection panel.
+    Overwrites any existing ones.
+    """
+
     await context.message.delete()
 
     embed = discord.Embed(
-        title="Participate in one of our supported game selections by reaction to the corresponding reaction!",
+        description="Interested in participating in one of our supported game selections? React to one of the below to receive relevant pings, such as in-house tournaments or events! \n\nThis extends to both casual and competitive interest. To play competitively in Stockton officially, please message a Game Manager. See the Game Manager Hub on the left hand-side.\n",
         color=0x24b6ff)
-    embed.set_footer(text="By reacting below, you will receive one of the corresponding roles above!")
+    embed.set_footer(text="React to the above for updates!")
     embed.set_author(name="🎮 Role Menu: Game Assignment")
     embed.set_thumbnail(url="https://stockton.edu/relations/brand-guide/images/osprey-head-full.png")
 
-    game_roles, game_emojis = gsheetsAPI.get_sheet_supported_games()
-    for i, _ in enumerate(game_roles):
+    role_games = [role for role in config['roles-games'].values()]
+    emoji_games = [emoji for emoji in config['emoji-games'].values()]
 
-        role = discord.utils.get(context.guild.roles, name=game_roles[i])
-        emoji = discord.utils.get(context.guild.emojis, name=str(game_emojis[i]))
+    for i, _ in enumerate(role_games):
+
+        role = discord.utils.get(context.guild.roles, name=role_games[i])
+        emoji = discord.utils.get(context.guild.emojis, name=str(emoji_games[i]))
         title = role.name
         if title == "Smash Brothers Ultimate":
             title = "Smash Bros. Ultimate"
 
         embed.add_field(name=f"{emoji} {title}", value=role.mention, inline=True)
 
-    await context.send(embed=embed)
-    last_message = [msg async for msg in context.message.channel.history(limit=1)].pop()
+    last_message = await utils.get_last_message_from_channel(context.channel)
+    if last_message:
+        await last_message.edit(embed=embed)
+    else:
+        await context.send(embed=embed)
+        last_message = await utils.get_last_message_from_channel(context.channel)
 
-    for i, emoji_name in enumerate(game_emojis):
+    for i, emoji_name in enumerate(emoji_games):
         emoji = discord.utils.get(context.message.guild.emojis, name=emoji_name)
-        await last_message.add_reaction(emoji)
+        if emoji not in last_message.reactions:  # Don't spend time adding old ones
+            await last_message.add_reaction(emoji)
 
 
 async def send_calendar_embed(context):
 
+    """
+    :param context: Command context
+    :return: None
+
+    Sends out the calendar embed panel.
+    Overwrites any existing ones.
+    """
+
     await context.message.delete()
-
-    events_channel_name = gsheetsAPI.get_event_subscriptions_channel_name()
-    events_channel = discord.utils.get(context.guild.channels, name=events_channel_name)
-
-    calendar_link, calendar_image_thumbnail, calendar_embed_color = gsheetsAPI.get_calendar()
-
-    link = calendar_link.pop(0)  # TODO: Why did I pop these? Experimentation?
-    thumbnail = calendar_image_thumbnail.pop(0)
-    color = calendar_embed_color.pop(0)
+    events_channel = utils.get_event_subscriptions_channel(context.guild)
+    calendar = utils.get_calendar_info()  # See index signature
 
     embed = discord.Embed(title="Official Event Calendar",
-                          url=link,
-                          description="", color=int(color, 16))
+                          url=calendar[0],
+                          description="", color=int(calendar[2], 16))
     embed.set_author(name="Stockton Esports",
-                     url=link,
+                     url=calendar[0],
                      icon_url="https://i.pinimg.com/originals/62/d9/c0/62d9c02a5ba072fdd8ce0ad05782ea1a.jpg")
-    embed.set_thumbnail(url=thumbnail)
+    embed.set_thumbnail(url=calendar[1])
     embed.add_field(name="Link:",
-                    value=link,
+                    value=calendar[0],
                     inline=False)
     embed.add_field(name="Event subscriptions channel:", value=events_channel.mention, inline=True)
     embed.set_footer(text=f"Occasionally check #{events_channel.name} for new event subscriptions.")
@@ -195,7 +224,7 @@ async def send_faq_embed(context):
 
     await context.message.delete()
 
-    questions, answers = gsheetsAPI.get_faq()
+    faq = utils.get_faq_and_a()
     faq_channel = utils.get_faq_channel(context.guild)
     help_dir_channel = utils.get_help_directory_channel(context.guild)
 
@@ -219,8 +248,7 @@ async def send_faq_embed(context):
     embed.set_author(name="❔ FAQ")
     embed.set_thumbnail(url="https://lh3.googleusercontent.com/proxy/NuskMuMLeEstVyxBKL5OLLQ4V-rULdK0fygraiaeqFaWVclGTaxCXz7RjVurr2GsZvS2ijr5H9_3wZPuPPRAYd5Vg-Q")
 
-    for i in range(len(questions)):
-        embed.add_field(name=questions[i], value=answers[i], inline=False)
+    for q_and_a in faq:
+        embed.add_field(name=q_and_a[0].capitalize(), value=q_and_a[1], inline=False)
 
     await context.send(embed=embed)
-

@@ -1,4 +1,4 @@
-from StocktonBotPackage.DevUtilities import configparser, gsheetsAPI, utils
+from StocktonBotPackage.DevUtilities import configutil, utils
 from collections import OrderedDict
 import discord
 import tweepy
@@ -424,7 +424,7 @@ class Poll:
                 else:
                     self.is_polling = False
                     listener.error = e
-                    owner = utils.get_codebase_owner_member(client.guild)
+                    owner = discord.utils.get(client.guild.members, id=int(config['id']['owner']))
                     await listener.commands_channel.send(f"{owner.mention}, unable to start poller after 5 retries. See `!metrics` for more information")
                     break
 
@@ -563,7 +563,7 @@ async def get_last_tweet():
 twitter_poller = Poll()  # Cut+paste to worker if this should automatically start
 tweet_data_wrapper = TweetDataRetrieverWrapper()
 queue_wrapper = TweetQueueWrapper()
-config = configparser.get_parsed_config()
+config = configutil.get_parsed_config()
 listener = StdOutListener()
 profile = TweepyClient().api.get_user(TweepyClient().user_id)  # To make a single API call
 client = TweepyClient(profile)  # Now initialized the client with one profile

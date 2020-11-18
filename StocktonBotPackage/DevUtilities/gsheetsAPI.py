@@ -1,11 +1,19 @@
-import gspread
-from StocktonBotPackage.DevUtilities import dropboxAPI, configparser
 from oauth2client.service_account import ServiceAccountCredentials
+from StocktonBotPackage.DevUtilities import configutil, dropboxAPI
+from datetime import datetime
+import threading
+import gspread
+import dropbox
+import time
+import os
 
-"""
-This module is a visual database for a very small set of Discord admins
-to use and customize the output of the bot.
-"""
+
+print(f"Opening Dropbox client...")
+# ---------------------------------------------------------+
+client_dropbox = dropbox.Dropbox(os.environ['DROPBOX-API-TOKEN'])  #
+# ---------------------------------------------------------+
+print(f"...Dropbox client opened!")
+
 
 scope = [
         "https://spreadsheets.google.com/feeds",
@@ -15,272 +23,247 @@ scope = [
     ]
 
 
-class Formatting:
-
-    """
-    We only need to retrieve this once during runtime.
-    Never gets updated dynamically. The Google Sheet
-    ranges following are locked, providing an extra layer
-    of consistency.
-    """
-
-    def __init__(self):
-        self.start = int(config['api-gsheets']['start'])
-        self.end = int(config['api-gsheets']['end'])
-        
-        
-config = configparser.get_parsed_config()
-format = Formatting()
-
-
-def open_google_sheets_client():
+def _get_and_open_gspread_client():
 
     print(f"Opening Google Sheets client, please wait...")
     json_keyfile = dropboxAPI.get_ghseets_credentials()
     credentials = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
-    clientt = gspread.authorize(credentials)
+    client = gspread.authorize(credentials)
     print(f"...Google sheets client successfully opened!")
-    return clientt
+    return client
 
 
-# ------------------------------------+
-client = open_google_sheets_client()  #
-# ------------------------------------+
+# Config
+# ---------------------------------------#
+config = configutil.get_parsed_config()  #
+# ---------------------------------------#
+
+# Get GSheets / Gspread client
+# -----------------------------------------------#
+client_gsheets = _get_and_open_gspread_client()  #
+# -----------------------------------------------#
+
+# Open worksheets with this:
+# ------------------------------------------------------------------#
+file = client_gsheets.open('Stockton Discord Bot - CONFIGURATION')  #
+# ------------------------------------------------------------------#
 
 
-def get_sheet_help_directory_contact_cards():
-
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CONTACT CARDS')
-    
-    role_titles = sheet.col_values(1)
-    names = sheet.col_values(2)
-    emails = sheet.col_values(3)
-    colors = sheet.col_values(4)
-    user_ids = sheet.col_values(5)
-    descriptions = sheet.col_values(6)
-    footers = sheet.col_values(7)
-
-    del role_titles[format.start:format.end]  # Remove the headers I've added
-    del names[format.start:format.end]
-    del emails[format.start:format.end]
-    del colors[format.start:format.end]
-    del user_ids[format.start:format.end]
-    del descriptions[format.start:format.end]
-    del footers[format.start:format.end]
-    
-    return role_titles, \
-        names, \
-        emails, \
-        colors, \
-        user_ids, \
-        descriptions,\
-        footers
-
-
-def get_sheet_supported_games():
-
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('SUPPORTED GAMES')
-    game_roles = sheet.col_values(1)
-    game_emojis = sheet.col_values(2)
-    del game_roles[format.start:format.end]
-    del game_emojis[format.start:format.end]
-    return game_roles, game_emojis
-
-
-def get_event_subscriptions():
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('EVENTS / SUBSCRIPTIONS')
-    role_names = sheet.col_values(1)
-    emojis = sheet.col_values(2)  # These are already default, raw emojis
-    description_values = sheet.col_values(3)
-
-    del role_names[format.start:format.end]
-    del emojis[format.start:format.end]
-    del description_values[format.start:format.end]
-    return role_names, emojis, description_values
-
-
-def get_blue_room_reserves_and_desc():
+def api_error_handler(func):
 
     """
-    :return: the reservations and description
-    Format: reservations, description
+    :param func: An error handling wrapper
+    :return: Function computation if valid,
+    otherwise return None and retry
     """
 
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('PC RESERVATIONS - BLUE ROOM')
-    reservations = sheet.col_values(2)
-    description = sheet.col_values(3)
-    del reservations[format.start:format.end]
-    del description[format.start:format.end]
+    def inner(*args):
+        try:
+            return func(*args)
+        except gspread.exceptions.APIError:
+            print(f"Resource quota exhausted exception caught at function {func}")
+        except ConnectionResetError as connection_reset_by_peer:
+            print(f"Connection reset by peer, caught at function {func}:\n{connection_reset_by_peer}")
+        except TimeoutError as read_timeout_error:
+            print(f"TimeoutError exception caught at function {func}\n{read_timeout_error}")
+        except Exception as unknown_exception:
+            print(f"Unknown exception caught at function {func}:\n{unknown_exception}")
+        finally:
+            return None
 
-    return reservations, description
-
-
-def get_authed_user_ids():
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('AUTHORIZED BOT CMD USERS')
-    ids = sheet.col_values(2)
-    del ids[format.start:format.end]  # Remove headers
-    ids = [int(i) for i in ids]  # Converts strings to ints
-    return ids
-
-
-def get_gm_info():
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('GAME MANAGERS')
-    role_titles = sheet.col_values(1)
-    names = sheet.col_values(2)
-    emails = sheet.col_values(3)
-    colors = sheet.col_values(4)
-    user_ids = sheet.col_values(5)
-    descriptions = sheet.col_values(6)
-    channel_names = sheet.col_values(7)
-    icon_links = sheet.col_values(8)
-
-    del role_titles[format.start:format.end]
-    del names[format.start:format.end]
-    del emails[format.start:format.end]
-    del colors[format.start:format.end]
-    del user_ids[format.start:format.end]
-    del descriptions[format.start:format.end]
-    del channel_names[format.start:format.end]
-    del icon_links[format.start:format.end]
-
-    return role_titles, \
-        names, \
-        emails, \
-        colors, \
-        user_ids, \
-        descriptions, \
-        channel_names, \
-        icon_links
+    return inner
 
 
-def get_calendar():
+@api_error_handler
+def store_help_directory_config(sheet: gspread.models.Worksheet):
 
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CALENDAR')
-    link = sheet.col_values(1)
-    thumbnail = sheet.col_values(2)
-    color = sheet.col_values(3)
-    del link[format.start:format.end]
-    del thumbnail[format.start:format.end]
-    del color[format.start:format.end]
-    return link, thumbnail, color
+    """
+    :param sheet: help directory sheet
+    :return: None
+    """
 
-
-def get_faq():
-
-    sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('FAQ')
-    questions = sheet.col_values(1)
-    answers = sheet.col_values(2)
-    del questions[format.start:format.end]
-    del answers[format.start:format.end]
-    return questions, answers
+    help_dir_info = sheet.get_all_values()[4:]
+    for i, leader in enumerate(help_dir_info):
+        for j, info in enumerate(leader):
+            config[f'contact-info-{j+1}'][str(i+1)] = info
 
 
-"""
-The following are indeed dynamic, but the channel types themselves are common enough
-to warrant separate methods that pull individual cell information.
-"""
+@api_error_handler
+def store_config_faq(sheet: gspread.models.Worksheet):
+
+    q_and_a = sheet.get_all_values()[4:]
+
+    questions = [i[0] for i in q_and_a]
+    answers = [i[1] for i in q_and_a]
+
+    for i in range(len(q_and_a)):
+        config['faq'][str(questions[i])] = str(answers[i])
 
 
-class SheetChannels:
+@api_error_handler
+def store_config_supported_games(sheet: gspread.models.Worksheet):
 
-    def __init__(self):
-        self.sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('CHANNELS')
-        self.column_channel_names = 2
-        self.index_landing = 0  # TODO: Replace hardcoded indice with matching dictionary key?
-        self.index_social_media_feed = 1
-        self.index_help_directory = 2
-        self.index_bot_command = 3
-        self.index_game_selection = 4
-        self.index_gaming_lab = 5
-        self.index_event_subscriptions = 6
-        self.index_faq = 7
-        self.index_audit_logs = 8
-        self.index_welcome = 9
+    supported_games = sheet.get_all_values()[4:]
 
-    def _get_all_channel_names(self):
+    role_names = [i[0] for i in supported_games]
+    emoji_names = [i[1] for i in supported_games]
+
+    for i in range(len(supported_games)):
+        config['role-games'][configutil.get_key_name_as_convention(role_names[i])] = str(role_names[i])
+        config['emoji-games'][configutil.get_key_name_as_convention(emoji_names[i])] = str(emoji_names[i])
+
+
+@api_error_handler
+def store_config_reserved_pcs_blue(sheet: gspread.models.Worksheet):
+
+    blue_room_values = sheet.get_all_values()[4:]
+    reserved_pcs = [i[1] for i in blue_room_values]  # Col 2
+    descriptions = [i[2] for i in blue_room_values]  # Col 3
+    # Column 1 is reserved for PC numbers- these are nonfunctional labels for users
+
+    config['lab-blue-description']['content'] = descriptions[0]
+    for i, pc in enumerate(reserved_pcs):
+        config['lab-blue-reservations'][str(i+1)] = pc
+
+
+@api_error_handler
+def store_config_event_subs(sheet: gspread.models.Worksheet):
+
+    event_subs = sheet.get_all_values()[4:]
+    role_names = [i[0] for i in event_subs]  # Col 2
+    emoji_names = [i[1] for i in event_subs]
+    description = [i[2] for i in event_subs]
+
+    for i, item in enumerate(event_subs):
+        key = configutil.get_key_name_as_convention(role_names[i])
+        config['role-events'][key] = str(role_names[i])
+        config['emoji-events'][key] = str(emoji_names[i])
+        config['description-events'][key] = str(description[i])
+
+
+@api_error_handler
+def store_config_game_managers(sheet: gspread.models.Worksheet):
+
+    gm_dir_info = sheet.get_all_values()[4:]
+
+    for i, gm in enumerate(gm_dir_info):
+        for j, info in enumerate(gm):
+            config[f'gm-info-{j + 1}'][str(i + 1)] = str(info).replace("%", "<>")
+            # Percents are temporarily replaced due to "invalid interpolation syntax" exception
+
+
+@api_error_handler
+def store_config_channels(sheet: gspread.models.Worksheet):
+
+    channel_names = sheet.get_all_values()[4:]
+    for i, channel_name in enumerate(channel_names):
+        as_key = str(channel_name[1]).replace("-", "")
+        config['channel'][as_key] = str(channel_name[1])
+
+
+@api_error_handler
+def store_config_calendar(sheet: gspread.models.Worksheet):
+
+    info = sheet.get_all_values()[4:]
+    for calendar_link, calendar_image, color in info:
+        config['calendar']['calendarlink'] = calendar_link
+        config['calendar']['calendarimage'] = calendar_image
+        config['calendar']['color'] = color
+        # WARNING: I have not accounted for multiple calendars
+
+
+@api_error_handler
+def store_config_authed_users(sheet: gspread.models.Worksheet):
+
+    authed_users = sheet.get_all_values()[4:]
+    for i, users in enumerate(authed_users):
+        config['id-authed'][f'{i+1}'] = str(users[1])
+
+
+def bg_google_sheets_config_ping():
+
+    print(f"... pinging worksheets!")
+
+    total = 0
+    num_unsupported_sheets = 2  # Change this during development
+
+    while True:
+
+        print(f"\t<ping> (@ {datetime.now()})")
+
+        try:
+            all_worksheets = file.worksheets()  # 1
+            total += 1
+        except gspread.exceptions.APIError:
+            print(f"\tResource quota exhausted exception caught in ping thread. Retrying in 10 seconds.")
+            time.sleep(10)
+            continue
+        except Exception as generic_placeholder:
+
+            """
+            ConnectionResetByPeer and TimeoutError exceptions are the most likely to be caught here.
+            Generally speaking, regardless of the exception that may occur trying to access the
+            Gspread API, I would still like the program to continue normally after waiting some time.
+            """
+
+            print(F"{type(generic_placeholder)} (exception) caught in ping thread. Retrying in 10 seconds.")
+            time.sleep(10)
+            continue
+
+
+        try:
+            for worksheet in all_worksheets:
+
+                if worksheet.title == config['api-gspread-tab-names']['contactcards']:
+                    threading.Thread(target=store_help_directory_config, args=[worksheet], daemon=True).start()  # 2
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['faq']:
+                    threading.Thread(target=store_config_faq, args=[worksheet], daemon=True).start()  # 3
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['supportedgames']:
+                    threading.Thread(target=store_config_supported_games, args=[worksheet], daemon=True).start()  # 4
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['eventsubscriptions']:
+                    threading.Thread(target=store_config_event_subs, args=[worksheet], daemon=True).start()  # 5
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['blueroom']:
+                    threading.Thread(target=store_config_reserved_pcs_blue, args=[worksheet], daemon=True).start()  # 6
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['gamemanager']:
+                    threading.Thread(target=store_config_game_managers, args=[worksheet], daemon=True).start()  # 7
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['goldroom']:
+                    # TODO
+                    pass
+                elif worksheet.title == config['api-gspread-tab-names']['channels']:
+                    threading.Thread(target=store_config_channels, args=[worksheet], daemon=True).start()  # 8
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['calendar']:
+                    threading.Thread(target=store_config_calendar, args=[worksheet], daemon=True).start()  # 9
+                    total += 1
+                elif worksheet.title == config['api-gspread-tab-names']['authorizedusers']:
+                    threading.Thread(target=store_config_authed_users, args=[worksheet], daemon=True).start()  # 10
+                    total += 1
+        except Exception as unknown_exception:
+            print(f"Unknown exception caught processing worksheet data. (WARNING: The wrapper needs to handle this).")
+            print(f"Exception type: {type(unknown_exception)}")
+            print(f"Error message:\n{unknown_exception}")
+
+        print(f"\tCurrent total: {total}")
+        if total >= 1000:
+            total = 0
 
         """
-        :return: list of channel all channel names
+        The following adjusts rate limit consumption by taking into
+        account the number of current worksheets minus the number of
+        unsupported worksheets.
         """
-
-        channel_names = self.sheet.col_values(self.column_channel_names)
-        del channel_names[format.start:format.end]
-        return channel_names
-
-    def get_landing_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_landing]
-
-    def get_social_media_feed_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_social_media_feed]
-
-    def get_help_directory_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_help_directory]
-
-    def get_bot_commands_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_bot_command]
-
-    def get_game_selection_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_game_selection]
-
-    def get_game_lab_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_gaming_lab]
-
-    def get_event_subscriptions_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_event_subscriptions]
-
-    def get_faq_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_faq]
-
-    def get_audit_logs_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_audit_logs]
-
-    def get_welcome_channel_name(self):
-
-        channel_names = self._get_all_channel_names()
-        return channel_names[self.index_welcome]
+        time.sleep(len(all_worksheets)-num_unsupported_sheets)
 
 
-def validate_resource_usage():
+print(f"Starting Google Sheet background thread...")
+thread = threading.Thread(target=bg_google_sheets_config_ping, args=[])
 
-    """
-    :return: True or False if able
-    to open a sheet
-
-    There seems to be no direct way of
-    accessing current rate limits
-    directly through the API.
-
-    In this case, if the client is
-    able to open any given sheet,
-    that means resource are still available,
-    and it returns True. Otherwise, it
-    return False.
-    """
-
-    try:
-        sheet = client.open("Stockton Discord Bot - CONFIGURATION").worksheet('FAQ')
-        if sheet:
-            return True
-        return False
-    except Exception:  # 429 error API resource exhausted
-        return False
-    
-# if __name__ == os.path.relpath(__file__).replace("\\", ".").replace(".py", "")
+# --------------#
+thread.start()  #
+# --------------#

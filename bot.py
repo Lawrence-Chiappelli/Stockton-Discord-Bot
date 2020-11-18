@@ -1,17 +1,22 @@
 from StocktonBotPackage.Features import embeddirectory, helpdirectory, twitterfeed, servermetrics, reactiondirectory, gamelabscraper
-from StocktonBotPackage.DevUtilities import configparser, validators, gsheetsAPI, herokuAPI, utils
+from StocktonBotPackage.DevUtilities import configutil, validators, herokuAPI, utils
 from discord.ext import commands
+from datetime import datetime
 import os
 import time
 import asyncio
 import discord
-import datetime
 
-# -----------------------------------------+
-client = commands.Bot(command_prefix='!')  #
-# -----------------------------------------+
-config = configparser.get_parsed_config()  #
-# -----------------------------------------+
+
+intents = discord.Intents.default()
+intents.members = True  # Subscribe to the privileged members intent.
+
+cmd_prefix = '!'  # Used in more than one place
+# ----------------------------------------------------------+
+client = commands.Bot(command_prefix=cmd_prefix, intents=intents)  #
+# ---------------------------------------+------------------+
+config = configutil.get_parsed_config()  #
+# ---------------------------------------+
 
 
 @client.event
@@ -25,24 +30,23 @@ before = time.time()
 @client.event
 async def on_ready():
 
+    print(f"On ready...")
     after = time.time()
     milliseconds = 1000 * (after - before)
-    print(f"Bot ready! (in {milliseconds} milliseconds!)")
+    print(f"...bot ready! (in {milliseconds} milliseconds!)")
 
-    try:
-        channel = utils.get_bot_commands_channel(client)
-    except (KeyError, Exception) as ke:
-        channel = None
-        print(f"No Discord server ID has been provided. This is okay. Exception\n{ke}")
+    channel = utils.get_bot_commands_channel(client)
 
     if channel:
-        await channel.send(f"Bot successfully restarted in `{milliseconds}` milliseconds.\n\nTwitter poller needs to be started with `!twitterpoll`. See `!metrics`.")
+        await channel.send(f"Bot successfully started in `{milliseconds}` milliseconds.\n\nTwitter poller needs to be started with `!twitterpoll`. See `!metrics`.")
 
-    if await validators.machine_availabilty_embed_exists(client):
-        print(f"Checks passed! Turning on game lab availability...")
-        await asyncio.wait([gamelabscraper.scrape_website(client)])
-    else:
-        print(f"Not pinging for lab updates, visual PC availability interface missing.")
+    print(F"Checking everyone pings...")
+    await servermetrics.display_ping_check(client)
+
+    # TODO: Automatically update GM panels and leadership panels on setup
+
+    print(f"Starting web scraper...")
+    await asyncio.wait([gamelabscraper.scrape_website(client)])
 
 
 @client.event
@@ -59,6 +63,8 @@ async def on_raw_reaction_add(payload):
     if validators.is_bot_reaction_function(emoji, channel):
         await reactiondirectory.debug_reaction(emoji, channel, member)
         await reactiondirectory.find_reaction_function(emoji, channel, member, message)
+    else:
+        print(f"Adding is NOT bot reaction function!")
 
 
 @client.event
@@ -78,7 +84,7 @@ async def on_raw_reaction_remove(payload):
         await reactiondirectory.debug_reaction(emoji, channel, member, False)
         await reactiondirectory.find_reaction_function(emoji, channel, member, message, False)
     else:
-        print(f"Is not bot reaction function!")
+        print(f"Removing is NOT bot reaction function!")
 
 
 @client.event
@@ -114,14 +120,18 @@ async def on_raw_message_delete(payload):
     :param payload: Payload of message deleted
     :return: None
 
-
+    Only serves one purpose- no need to abstract
+    this away into a different function or module.
     """
+
+    if herokuAPI.Heroku().get_app_state() == "Running locally":  # TODO: Change hardcoded value
+        return
 
     guild = client.get_guild(payload.guild_id)
     channel = discord.utils.get(guild.channels, id=payload.channel_id)
     message = payload.cached_message
 
-    if channel.name == gsheetsAPI.SheetChannels().get_audit_logs_channel_name():
+    if channel.name == config['channel']['auditlogs'] or str(message.content).startswith(cmd_prefix):
         return
 
     embed = discord.Embed(title="", description="*Claim responsibility below*", color=0x2eff93)
@@ -131,7 +141,7 @@ async def on_raw_message_delete(payload):
     embed.add_field(name="Author", value=message.author, inline=False)
     embed.add_field(name="Content", value=f"`{message.content}`", inline=False)
     embed.add_field(name="Channel", value=channel.mention, inline=False)
-    embed.add_field(name="Time deleted", value=str(datetime.datetime.now().strftime("%I:%M:%S")), inline=False)
+    embed.add_field(name="Time deleted", value=str(datetime.now().strftime("%I:%M:%S")), inline=False)
     embed.set_footer(text=f"Deleted by: {config['emoji']['audit']} You | {config['emoji']['author']} Author")
 
     audit_channel = utils.get_audit_log_channel(guild)
@@ -170,7 +180,14 @@ def is_authed_user():
 
     async def predicate(ctx):
 
-        user_ids = gsheetsAPI.get_authed_user_ids()
+        def _add_authed_users_locally():
+            nonlocal user_ids
+            if user_ids != [int(x) for x in list(config['id-authed'].values())]:
+                for i, user_id in enumerate(user_ids):
+                    config['id-authed'][f'id{str(i)}'] = str(user_id)
+
+        user_ids = [int(ids) for ids in config['id-authed'].values()]
+        _add_authed_users_locally()
         return (ctx.author.id in user_ids) or (ctx.author.id == int(config['id']['owner']))
 
     return commands.check(predicate)
@@ -179,10 +196,11 @@ def is_authed_user():
 @client.event
 async def on_command_error(ctx, error):
 
-    message = f"Command error or exception found! See below:\n\nCOMMAND - `{ctx.message.content}`\nERROR - `{error}`\nSENT BY - `{ctx.author}`\nFAILED AT - {ctx.channel.mention}"
-    print(message)
+    message = f"Command error or exception found! See below:\n\nCOMMAND - `{ctx.message.content}`\nERROR - `{error}`\nSENT BY - `{ctx.author}`\nFAILED AT - {ctx.channel.mention}\n\nFULL TRACEBACK:```python\n{error}```"
+    print(dir(ctx))
+    print(dir(error))
 
-    owner = discord.utils.get(ctx.guild.members, id=int(config['id']['owner']))
+    owner = utils.get_codebase_owner_member(ctx.guild)
     commands_channel = utils.get_bot_commands_channel(ctx.guild)
     if owner:
         message += f"\n\n{owner.mention}"
@@ -262,12 +280,12 @@ async def gameselection(ctx):
 async def helppanel(ctx):
 
     """
-    Send out the default help panel for navigational help.
+    Send out the student leadership panel.
     :param ctx: Context
     :return: None
     """
 
-    await helpdirectory.send_help_panel(ctx, client)
+    await helpdirectory.send_help_panel(ctx)
 
 
 @client.command(name='eventpanel', pass_context=True)
@@ -280,7 +298,7 @@ async def eventpanel(ctx):
     :return: None
     """
 
-    await embeddirectory.send_event_embed(ctx, client)
+    await embeddirectory.send_event_embed(ctx)
 
 
 @client.command(name="twitterstream", pass_context=True)
@@ -355,7 +373,7 @@ async def gmpanel(ctx):
     :return: None
     """
 
-    await helpdirectory.send_gm_panel(client, ctx)
+    await helpdirectory.send_game_manager_panel(ctx)
 
 
 @client.command(name="forceoff", pass_context=True)
@@ -371,9 +389,9 @@ async def forceoff(ctx):
     await gamelabscraper.force_off(ctx.guild)
 
 
-@client.command(name="calendar", pass_context=True)
+@client.command(name="calendarr", pass_context=True)
 @is_authed_user()
-async def calendar(ctx):
+async def calendarr(ctx):
 
     """
     Send out the google docs calendar embed
@@ -432,6 +450,28 @@ async def restart(ctx):
     """
 
     await herokuAPI.Heroku().restart_app(ctx)
+
+
+@client.command(name='rolecheck', pass_context=True)
+@is_authed_user()
+async def rolecheck(ctx):
+    """
+    Display users who are missing a role.
+    :return: None
+    """
+
+    await servermetrics.display_role_check(ctx)
+    
+    
+@client.command(name='pingcheck', pass_context=True)
+@is_authed_user()
+async def pingcheck(ctx):
+    """
+    Check user amount of @everyone pings
+    :return: None
+    """
+
+    await servermetrics.display_ping_check(ctx)
 
 
 client.run(os.environ['TOKEN'])
