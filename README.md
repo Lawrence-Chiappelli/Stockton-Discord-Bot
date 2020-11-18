@@ -82,7 +82,7 @@ Contains modules, functionality and utility unique to the Stockton Esports Disco
     
     - ```seleniumbrowser.py``` - Contains functionality and error handling necessary to successfully start the selenium browser for web scraping.
     
-    - ```utils.py``` - Contains custom, commonly used utility functions to assist me during development. This module is also the wrapper that retrieves local configuration information previously pulled from Google Sheets. Please see the below section on the [Google Sheets Config File](#Google Sheets configuration file) for more information.       
+    - ```utils.py``` - Contains custom, commonly used utility functions to assist me during development. This module is also the wrapper that retrieves local configuration information previously pulled from Google Sheets. Please see the below section on the [Google Sheets configuration file](#Google-Sheets-configuration-file) for more information.       
     
     - ```validators.py``` -  Contains shorthand methods of checking the validity of command execution, such that we are able efficiently use sparse rate limit quotas.
     
