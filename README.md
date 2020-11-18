@@ -13,8 +13,6 @@ This repository contains a private Discord bot for Stockton University's Esports
 * [Contribution/install instructions](#Contributor-and-Installation-instructions)
 * [Gallery](#Gallery)
 
-
-
 If you have questions, feel free to send me an email at: **lawrencechiappelli@gmail.com**
 
 Likewise, if you are already a member of the Stockton Esports Server, you are more than welcome to message a moderator or leadership staff member using the contact information provided by the bot.
