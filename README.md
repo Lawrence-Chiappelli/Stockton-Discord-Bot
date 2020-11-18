@@ -4,7 +4,7 @@ This repository contains a private Discord bot for Stockton University's Esports
 
 **Motivation**: Due to an inevitable increase in server traffic, this bot has been developed to automate moderation tasks, maximize user retention, provide help resources and handle professional aesthetics.
 
-#####Table of contents:
+**Table of contents**:
 
 * [Feature list](#Feature-list)
 * [Technologies used](#Technologies-used)
@@ -56,7 +56,7 @@ The following is an explanation of the repository's project structure, whether y
 ### Heroku Files:
 
 - ```bot.py``` - the "brains" of the code. The user provides their bot token here, and directs end-user functionality to different modules. Set this as your script path.
-- ```config.ini``` - contains a unique configuration specific to the needs of Discord server. Config info is retrieved from the [Google Sheets config file](#Google-Sheets-configuration-file) and stored here. The primary motivation for this is to improve API response times and efficiently utilize sparse rate limit quotas. 
+- ```config.ini``` - contains a unique configuration specific to the needs of Discord server. Config info is retrieved from the [Google Sheets configuration file](#Google-Sheets-configuration-file) and stored here. The primary motivation for this is to improve API response times and efficiently utilize sparse rate limit quotas. 
 - ```Aptfile``` - "[Heroku](https://heroku.com) will ... install these packages ... when you deploy your application"
 - ```Procfile``` - "Heroku apps include a Procfile that specifies the commands that are executed by the app on startup"
 - ```runtime.txt``` - "The Heroku Runtime is responsible for provisioning and orchestrating containers (dynos), managing and monitoring their -lifecycle, providing proper network configuration, HTTP routing, log aggregation, and more."
