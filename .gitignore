@@ -1,0 +1,6 @@
+/archive/
+/.idea/
+/venv/
+README.md
+credentials.json
+snippets.py
